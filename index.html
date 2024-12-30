@@ -153,6 +153,7 @@
 
   <script type="text/babel">
     const { useState, useMemo } = React;
+    // We'll alias the global XLSX library as XLSXLib
     const XLSXLib = window.XLSX;
     const PapaLib = window.Papa;
 
@@ -305,7 +306,7 @@
         }
       }
 
-      // Strips commas, $, etc. 
+      // Strips commas, $, etc.
       // Now ensures "val" is always a string to avoid "val.replace is not a function".
       function sanitizeNumberString(val) {
         if (val === null || val === undefined) return '';
@@ -454,14 +455,14 @@
       }, [data, filters, sortConfig, hasValidData]);
 
       // XLSX export
-      const s2ab = s => {
+      function s2ab(s) {
         const buf = new ArrayBuffer(s.length);
         const view = new Uint8Array(buf);
         for (let i = 0; i < s.length; i++) {
           view[i] = s.charCodeAt(i) & 0xFF;
         }
         return buf;
-      };
+      }
 
       const handleSave = () => {
         if (!hasValidData || !filteredAndSortedData.length) {
@@ -478,6 +479,7 @@
           const wb = XLSXLib.utils.book_new();
           const ws = XLSXLib.utils.json_to_sheet(dataToSave);
 
+          // Color-styling each row
           filteredAndSortedData.forEach((row, idx) => {
             const colorName = row.rowColor || '';
             if (!colorName) return;
@@ -517,14 +519,22 @@
             });
           });
 
+          // Adjust column widths
           const colWidths = columns.map(col => ({
             wch: col === 'contributed' ? 15 : Math.max(col.length, 10)
           }));
           ws['!cols'] = colWidths;
 
           XLSXLib.utils.book_append_sheet(wb, ws, 'Sheet1');
-          const wbout = XLSXLib.utils.write(wb, { bookType: 'xlsx', type: 'binary', cellStyles: true });
 
+          // -- Fixed usage here: XLSXLib.write(...) instead of XLSXLib.utils.write(...)
+          const wbout = XLSXLib.write(wb, {
+            bookType: 'xlsx',
+            type: 'binary',
+            cellStyles: true
+          });
+
+          // Convert to blob and download
           const blob = new Blob([s2ab(wbout)], { type: 'application/octet-stream' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
