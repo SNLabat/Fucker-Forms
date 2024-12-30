@@ -153,7 +153,6 @@
 
   <script type="text/babel">
     const { useState, useMemo } = React;
-    // We'll alias the global XLSX library as XLSXLib
     const XLSXLib = window.XLSX;
     const PapaLib = window.Papa;
 
@@ -250,16 +249,34 @@
               return;
             }
 
-            const rows = parsedData.map((row, index) => ({
-              ...row,
-              _uniqueKey: `row-${Date.now()}-${index}`,
-              contributed: row.contributed || '',
-              rowColor: row.rowColor || ''
-            }));
+            // Ensure we have difference in the columns
+            const desiredCols = [...fields];
+            if (!desiredCols.includes('difference')) {
+              desiredCols.push('difference');
+            }
+            if (!desiredCols.includes('contributed')) {
+              desiredCols.push('contributed');
+            }
+            if (!desiredCols.includes('rowColor')) {
+              desiredCols.push('rowColor');
+            }
+
+            const rows = parsedData.map((row, index) => {
+              const amountNum = parseFloat(sanitizeNumberString(row.amount)) || 0;
+              const contribNum = parseFloat(sanitizeNumberString(row.contributed)) || 0;
+              const diff = contribNum - amountNum;
+
+              return {
+                ...row,
+                _uniqueKey: `row-${Date.now()}-${index}`,
+                contributed: row.contributed || '',
+                rowColor: row.rowColor || '',
+                difference: diff.toString() // store as string for consistency
+              };
+            });
 
             setData(rows);
-            const extra = ['contributed', 'rowColor'].filter((c) => !fields.includes(c));
-            setColumns([...fields, ...extra]);
+            setColumns(desiredCols);
           },
           error: (err) => {
             showError(`PapaParse error: ${err.message}`);
@@ -291,16 +308,34 @@
             return;
           }
 
-          const rows = jsonData.map((row, index) => ({
-            ...row,
-            _uniqueKey: `row-${Date.now()}-${index}`,
-            contributed: row.contributed || '',
-            rowColor: row.rowColor || ''
-          }));
+          // Ensure we have difference, contributed, rowColor
+          const desiredCols = [...baseCols];
+          if (!desiredCols.includes('difference')) {
+            desiredCols.push('difference');
+          }
+          if (!desiredCols.includes('contributed')) {
+            desiredCols.push('contributed');
+          }
+          if (!desiredCols.includes('rowColor')) {
+            desiredCols.push('rowColor');
+          }
+
+          const rows = jsonData.map((row, index) => {
+            const amountNum = parseFloat(sanitizeNumberString(row.amount)) || 0;
+            const contribNum = parseFloat(sanitizeNumberString(row.contributed)) || 0;
+            const diff = contribNum - amountNum;
+
+            return {
+              ...row,
+              _uniqueKey: `row-${Date.now()}-${index}`,
+              contributed: row.contributed || '',
+              rowColor: row.rowColor || '',
+              difference: diff.toString()
+            };
+          });
 
           setData(rows);
-          const extra = ['contributed', 'rowColor'].filter((c) => !baseCols.includes(c));
-          setColumns([...baseCols, ...extra]);
+          setColumns(desiredCols);
         } catch (err) {
           showError(`Error reading XLSX: ${err.message}`);
         }
@@ -335,6 +370,7 @@
       };
 
       // This updates the row's contributed value and color
+      // Also re-calculates difference = contributed - amount
       const handleContributedChange = (uniqueKey, newValue) => {
         if (!hasValidData) {
           showError('No valid data loaded. Please upload a valid sheet with "amount" column.');
@@ -344,7 +380,17 @@
           setData(prevData =>
             prevData.map(row => {
               if (row._uniqueKey === uniqueKey) {
-                const updated = { ...row, contributed: newValue };
+                // Recompute difference
+                const amountNum = parseFloat(sanitizeNumberString(row.amount)) || 0;
+                const contribNum = parseFloat(sanitizeNumberString(newValue)) || 0;
+                const diff = contribNum - amountNum;
+
+                const updated = {
+                  ...row,
+                  contributed: newValue,
+                  difference: diff.toString()
+                };
+
                 const manual = rowColors[uniqueKey];
                 const auto = computeAutoColor(updated);
                 updated.rowColor = manual || auto;
@@ -527,7 +573,7 @@
 
           XLSXLib.utils.book_append_sheet(wb, ws, 'Sheet1');
 
-          // -- Fixed usage here: XLSXLib.write(...) instead of XLSXLib.utils.write(...)
+          // Use XLSXLib.write(...) (NOT XLSXLib.utils.write)
           const wbout = XLSXLib.write(wb, {
             bookType: 'xlsx',
             type: 'binary',
@@ -562,7 +608,7 @@
 
           <div className="filters-and-sort">
             <div className="filters">
-              {['action', 'description', 'done_at', 'amount'].map(col => (
+              {['action', 'description', 'done_at', 'amount', 'difference'].map(col => (
                 columns.includes(col) && (
                   <div key={col}>
                     <label>{col}: </label>
@@ -653,6 +699,7 @@
               <li>You can filter by action, description, or amount. You will more than likely want to filter by "salary" in descriptions.</li>
               <li>Once filtered, you can hit "Sort Amount" to sort the sheet by highest to lowest or lowest to highest.</li>
               <li>You can either manually mark a row or input the amount "contributed" and it will auto-calculate the color based on the amount.</li>
+              <li>A “difference” column shows <code>(contributed - amount)</code>. It updates automatically when you type in a new contributed value.</li>
               <li>Once finished, click "Save Current View" and it will export your work to an XLSX (Excel) spreadsheet to work with or share elsewhere.</li>
             </ol>
           </div>
