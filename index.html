@@ -47,6 +47,7 @@
       padding: 12px;
       border-bottom: 1px solid #404040;
     }
+    /* Color-coded row classes */
     .row-green {
       background-color: rgba(144, 238, 144, 0.2);
     }
@@ -64,7 +65,7 @@
       color: white;
       margin-bottom: 20px;
     }
-    input[type="text"] {
+    input[type="text"], input[type="number"] {
       background-color: #404040;
       border: 1px solid #555;
       color: white;
@@ -107,13 +108,6 @@
       margin-bottom: 20px;
       flex-wrap: wrap;
     }
-    input[type="number"] {
-      background-color: #404040;
-      border: 1px solid #555;
-      color: white;
-      padding: 4px 8px;
-      border-radius: 4px;
-    }
     input[type="number"]:focus {
       outline: none;
       border-color: #666;
@@ -138,12 +132,9 @@
       const [columns, setColumns] = useState([]);
       const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
       const [filters, setFilters] = useState({});
+      // Track any manual overrides by _uniqueKey
       const [rowColors, setRowColors] = useState({});
       const [sortDirection, setSortDirection] = useState('asc');
-
-      // This local state "buffers" the user's typed value for contributed
-      // so we only commit it to the main 'data' state when they press Enter.
-      const [editingContributions, setEditingContributions] = useState({});
 
       const handleFileUpload = (event) => {
         const file = event.target.files[0];
@@ -160,14 +151,17 @@
                 const rows = results.data.map((row, index) => ({
                   ...row,
                   _uniqueKey: `row-${Date.now()}-${index}`,
-                  rowColor: row.rowColor || '',
-                  contributed: row.contributed || ''
+                  // Ensure contributed property exists
+                  contributed: row.contributed || '',
+                  // Keep or create rowColor if it exists
+                  rowColor: row.rowColor || ''
                 }));
                 setData(rows);
-                // Gather columns
+
                 const fields = results.meta.fields || [];
-                const extraCols = ['rowColor', 'contributed'].filter(col => !fields.includes(col));
-                setColumns([...fields, ...extraCols]);
+                // Ensure we have 'contributed' and 'rowColor' in columns
+                const extra = ['contributed', 'rowColor'].filter((c) => !fields.includes(c));
+                setColumns([...fields, ...extra]);
               }
             });
           } else if (file.name.endsWith('.xlsx')) {
@@ -179,14 +173,14 @@
             const rows = jsonData.map((row, index) => ({
               ...row,
               _uniqueKey: `row-${Date.now()}-${index}`,
-              rowColor: row.rowColor || '',
-              contributed: row.contributed || ''
+              contributed: row.contributed || '',
+              rowColor: row.rowColor || ''
             }));
             setData(rows);
 
-            const baseColumns = Object.keys(jsonData[0] || []);
-            const extraCols = ['rowColor', 'contributed'].filter(col => !baseColumns.includes(col));
-            setColumns([...baseColumns, ...extraCols]);
+            const baseCols = Object.keys(jsonData[0] || []);
+            const extra = ['contributed', 'rowColor'].filter((c) => !baseCols.includes(c));
+            setColumns([...baseCols, ...extra]);
           }
         };
 
@@ -197,37 +191,47 @@
         }
       };
 
-      // Sanitize a string by removing all non-numeric (and non-decimal) characters
-      // to handle formats like "$34,154" or "34,154.00".
+      // Strip out commas, $, etc. so parseFloat works properly.
       const sanitizeNumberString = (val) => {
         if (!val) return '';
-        return val.toString().replace(/[^\d.-]/g, '');
+        return val.replace(/[^\d.-]/g, '');
       };
 
-      // Automatic color logic comparing 'amount' vs. 'contributed'.
-      // If your CSV/Excel doesn't have an 'amount' column, rename as needed.
+      // Automatic color logic based on "amount" vs. "contributed".
+      // No highlight if either is missing/empty or zero.
+      // Otherwise:
+      //  - Green if contributed > amount
+      //  - Red if contributed < amount/2
+      //  - Yellow otherwise
       const computeAutoColor = (row) => {
-        const safeAmountStr = sanitizeNumberString(row.amount);
-        const amount = parseFloat(safeAmountStr) || 0;
+        const amtStr = sanitizeNumberString(row.amount || '');
+        const contrStr = sanitizeNumberString(row.contributed || '');
 
-        const safeContribStr = sanitizeNumberString(row.contributed);
-        const contribution = parseFloat(safeContribStr) || 0;
+        if (!amtStr || !contrStr) return ''; // No highlight if either is empty
 
-        if (contribution > amount) {
+        const amount = parseFloat(amtStr) || 0;
+        const contributed = parseFloat(contrStr) || 0;
+
+        if (amount === 0 && contributed === 0) {
+          // If both are zero, no highlight
+          return '';
+        }
+
+        if (contributed > amount) {
           return 'green';
-        } else if (contribution < amount / 2) {
+        } else if (contributed < amount / 2) {
           return 'red';
         } else {
           return 'yellow';
         }
       };
 
-      // Final color = manual override OR the auto color
+      // Final color = manual override OR computed
       const getRowColor = (row) => {
         return rowColors[row._uniqueKey] || computeAutoColor(row);
       };
 
-      // Manually override color
+      // Manual override
       const handleRowColor = (uniqueKey, color) => {
         setRowColors((prev) => ({
           ...prev,
@@ -235,7 +239,7 @@
         }));
       };
 
-      // Commit the contributed value after pressing Enter.
+      // Called on every keystroke in 'contributed' so the highlight updates immediately
       const handleContributedChange = (uniqueKey, newValue) => {
         setData((prevData) =>
           prevData.map((row) =>
@@ -246,24 +250,6 @@
         );
       };
 
-      // As user types, store in local state:
-      const handleChangeTempContribution = (uniqueKey, value) => {
-        setEditingContributions((prev) => ({
-          ...prev,
-          [uniqueKey]: value
-        }));
-      };
-
-      // On key down, if user presses Enter, commit that local value to the main data
-      const handleKeyDownContribution = (uniqueKey, e) => {
-        if (e.key === 'Enter') {
-          const newVal = editingContributions[uniqueKey];
-          if (newVal !== undefined) {
-            handleContributedChange(uniqueKey, newVal);
-          }
-        }
-      };
-
       // Filter logic
       const handleFilter = (column, value) => {
         setFilters((prev) => ({
@@ -272,7 +258,7 @@
         }));
       };
 
-      // Sort logic for an 'amount' column
+      // Sort logic for 'amount'
       const handleAmountSort = () => {
         setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
         setSortConfig({ key: 'amount', direction: sortDirection });
@@ -292,28 +278,29 @@
       const filteredAndSortedData = useMemo(() => {
         let processed = [...data];
 
-        // Filter
-        Object.keys(filters).forEach((column) => {
-          const filterValue = (filters[column] || '').toLowerCase();
-          if (filterValue) {
+        // Filtering
+        Object.keys(filters).forEach((col) => {
+          const val = (filters[col] || '').toLowerCase();
+          if (val) {
             processed = processed.filter((row) =>
-              String(row[column] || '').toLowerCase().includes(filterValue)
+              String(row[col] || '').toLowerCase().includes(val)
             );
           }
         });
 
-        // If we sort by 'amount':
+        // Sort by 'amount' if needed
         if (sortConfig.key === 'amount') {
           processed.sort((a, b) => {
-            const aVal = parseFloat(sanitizeNumberString(a.amount)) || 0;
-            const bVal = parseFloat(sanitizeNumberString(b.amount)) || 0;
+            const aVal = parseFloat(sanitizeNumberString(a.amount || '')) || 0;
+            const bVal = parseFloat(sanitizeNumberString(b.amount || '')) || 0;
             return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
           });
         }
+
         return processed;
       }, [data, filters, sortConfig]);
 
-      // Helper to build array buffer
+      // XLSX exporting
       const s2ab = (s) => {
         const buf = new ArrayBuffer(s.length);
         const view = new Uint8Array(buf);
@@ -323,11 +310,9 @@
         return buf;
       };
 
-      // Export current data to XLSX with styling
       const handleSave = () => {
         if (!filteredAndSortedData.length) return;
 
-        // Build array of rows for saving
         const dataToSave = filteredAndSortedData.map((row) => {
           const newRow = { ...row };
           delete newRow._uniqueKey;
@@ -338,9 +323,11 @@
           const wb = XLSXLib.utils.book_new();
           const ws = XLSXLib.utils.json_to_sheet(dataToSave);
 
-          // Apply style
+          // Style each row
           filteredAndSortedData.forEach((row, idx) => {
             const colorName = getRowColor(row);
+            if (!colorName) return; // No highlight => skip styling
+
             const colorMap = {
               green: {
                 patternType: 'solid',
@@ -359,21 +346,21 @@
               }
             };
             const style = colorMap[colorName];
-            if (style) {
-              columns.forEach((col, colIndex) => {
-                const cellRef = XLSXLib.utils.encode_cell({ r: idx + 1, c: colIndex });
-                if (!ws[cellRef]) ws[cellRef] = {};
-                ws[cellRef].s = {
-                  fill: style,
-                  border: {
-                    top: { style: 'thin', color: { auto: 1 } },
-                    bottom: { style: 'thin', color: { auto: 1 } },
-                    left: { style: 'thin', color: { auto: 1 } },
-                    right: { style: 'thin', color: { auto: 1 } }
-                  }
-                };
-              });
-            }
+            if (!style) return;
+
+            columns.forEach((col, colIndex) => {
+              const cellRef = XLSXLib.utils.encode_cell({ r: idx + 1, c: colIndex });
+              if (!ws[cellRef]) ws[cellRef] = {};
+              ws[cellRef].s = {
+                fill: style,
+                border: {
+                  top: { style: 'thin', color: { auto: 1 } },
+                  bottom: { style: 'thin', color: { auto: 1 } },
+                  left: { style: 'thin', color: { auto: 1 } },
+                  right: { style: 'thin', color: { auto: 1 } }
+                }
+              };
+            });
           });
 
           // Column widths
@@ -415,8 +402,8 @@
 
           <div className="filters-and-sort">
             <div className="filters">
-              {/* Example: filter by some columns. Adjust as needed. */}
-              {['action', 'description', 'done_at', 'amount'].map(col => (
+              {/* Example filters. Add or remove as needed */}
+              {['action', 'description', 'done_at', 'amount'].map((col) => (
                 columns.includes(col) && (
                   <div key={col}>
                     <label>{col}: </label>
@@ -429,8 +416,10 @@
                 )
               ))}
             </div>
-
-            {/* Sort button if 'amount' column is present */}
+            {/*
+              If your data has "amount", this button toggles ascending/descending sort
+              for that column.
+            */}
             <button
               className="sort-button"
               onClick={handleAmountSort}
@@ -445,13 +434,13 @@
               <thead>
                 <tr>
                   <th>Row Actions</th>
-                  {columns.map((column) => (
+                  {columns.map((col) => (
                     <th
-                      key={column}
-                      onClick={() => handleSort(column)}
+                      key={col}
+                      onClick={() => handleSort(col)}
                     >
-                      {column}
-                      {sortConfig.key === column && (
+                      {col}
+                      {sortConfig.key === col && (
                         sortConfig.direction === 'asc' ? ' ↑' : ' ↓'
                       )}
                     </th>
@@ -460,37 +449,32 @@
               </thead>
               <tbody>
                 {filteredAndSortedData.map((row) => {
-                  const rowHighlight = getRowColor(row);
+                  const rowHighlight = getRowColor(row); 
                   return (
                     <tr
                       key={row._uniqueKey}
-                      className={`row-${rowHighlight}`}
+                      className={rowHighlight ? `row-${rowHighlight}` : ''}
                     >
+                      {/* Manual color overrides (optional) */}
                       <td>
-                        {/* Manual overrides (remove if you want purely automatic coloring) */}
                         <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, '')}>Auto</button>
                       </td>
-                      {columns.map((column) => {
-                        if (column === 'rowColor') {
+                      {columns.map((col) => {
+                        if (col === 'rowColor') {
                           // Show or hide as you prefer
-                          return <td key={column}>{row.rowColor}</td>;
+                          return <td key={col}>{row.rowColor}</td>;
                         }
-                        if (column === 'contributed') {
-                          // Input with local buffer, commit on Enter
-                          const tempValue =
-                            editingContributions[row._uniqueKey] !== undefined
-                              ? editingContributions[row._uniqueKey]
-                              : row.contributed || '';
+                        if (col === 'contributed') {
+                          // Update immediately on any change
                           return (
-                            <td key={column}>
+                            <td key={col}>
                               <input
-                                type="number"
-                                value={tempValue}
-                                onChange={(e) => handleChangeTempContribution(row._uniqueKey, e.target.value)}
-                                onKeyDown={(e) => handleKeyDownContribution(row._uniqueKey, e)}
+                                type="text"
+                                value={row.contributed || ''}
+                                onChange={(e) => handleContributedChange(row._uniqueKey, e.target.value)}
                                 style={{
                                   width: '100px',
                                   padding: '4px',
@@ -502,7 +486,7 @@
                             </td>
                           );
                         }
-                        return <td key={column}>{row[column]}</td>;
+                        return <td key={col}>{row[col]}</td>;
                       })}
                     </tr>
                   );
