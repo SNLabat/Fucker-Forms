@@ -132,6 +132,20 @@
       margin: 10px 0;
       padding-left: 20px;
     }
+    /* Error box styling */
+    .error-box {
+      background-color: #660000;
+      color: #ffffff;
+      margin-top: 20px;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 700px;
+      word-wrap: break-word; /* wrap long error messages */
+    }
+    .error-box h2 {
+      margin-top: 0;
+      color: #ff8080;
+    }
   </style>
 </head>
 <body>
@@ -151,99 +165,145 @@
       const [rowColors, setRowColors] = useState({});
       const [sortDirection, setSortDirection] = useState('asc');
 
+      // We'll store any error here and display it in the UI
+      const [errorMessage, setErrorMessage] = useState('');
+
       // We require "amount" column. If you need more, adapt checks below
       const REQUIRED_COLUMN = 'amount';
 
+      // Clears current data/columns/overrides
+      function resetState() {
+        setData([]);
+        setColumns([]);
+        setRowColors({});
+        setFilters({});
+        setSortConfig({ key: null, direction: 'asc' });
+      }
+
+      // True if we have the 'amount' column and at least 1 row
+      const hasValidData = columns.includes(REQUIRED_COLUMN) && data.length > 0;
+
+      // Safely set an error message
+      function showError(message) {
+        setErrorMessage(message);
+      }
+
+      // Clear error message
+      function clearError() {
+        setErrorMessage('');
+      }
+
       const handleFileUpload = (event) => {
         const file = event.target.files[0];
-        if (!file) return;
+        if (!file) {
+          showError('No file selected.');
+          return;
+        }
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const content = e.target.result;
+        resetState();
+        clearError();
 
-          // Reset data/columns so user actions won't break the UI if new file fails
-          setData([]);
-          setColumns([]);
-          setRowColors({});
-          setFilters({});
-          setSortConfig({ key: null, direction: 'asc' });
+        try {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const content = e.target.result;
 
-          if (file.name.endsWith('.csv')) {
-            PapaLib.parse(content, {
-              header: true,
-              complete: (results) => {
-                const parsedData = results.data;
-                const fields = results.meta.fields || [];
-
-                if (!parsedData || parsedData.length === 0) {
-                  alert("Error: CSV is empty. Please check your file.");
-                  return;
-                }
-                if (!fields.includes(REQUIRED_COLUMN)) {
-                  alert(`Error: Required column "${REQUIRED_COLUMN}" is missing in CSV. Please check your data.`);
-                  return;
-                }
-
-                const rows = parsedData.map((row, index) => ({
-                  ...row,
-                  _uniqueKey: `row-${Date.now()}-${index}`,
-                  contributed: row.contributed || '',
-                  rowColor: row.rowColor || ''
-                }));
-                setData(rows);
-
-                const extra = ['contributed', 'rowColor'].filter((c) => !fields.includes(c));
-                setColumns([...fields, ...extra]);
+            try {
+              if (file.name.endsWith('.csv')) {
+                parseCSV(content);
+              } else if (file.name.endsWith('.xlsx')) {
+                parseXLSX(content);
+              } else {
+                showError('Unsupported file type. Please upload a .csv or .xlsx file.');
               }
-            });
+            } catch (parseErr) {
+              showError(`Error parsing file: ${parseErr.message}`);
+            }
+          };
+
+          // Read file
+          if (file.name.endsWith('.csv')) {
+            reader.readAsText(file);
+          } else {
+            reader.readAsBinaryString(file);
           }
-          else if (file.name.endsWith('.xlsx')) {
-            const workbook = XLSXLib.read(content, { type: 'binary' });
+        } catch (err) {
+          showError(`Failed to read file: ${err.message}`);
+        }
+      };
 
-            // Defensive checks
-            if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-              alert("Error: This Excel file has no sheets. Please check your file.");
+      // Parse CSV content
+      function parseCSV(content) {
+        PapaLib.parse(content, {
+          header: true,
+          complete: (results) => {
+            const parsedData = results.data;
+            const fields = results.meta.fields || [];
+
+            if (!parsedData || parsedData.length === 0) {
+              showError("Error: CSV is empty. Please check your file.");
+              return;
+            }
+            if (!fields.includes(REQUIRED_COLUMN)) {
+              showError(`Error: Required column "${REQUIRED_COLUMN}" is missing in CSV. Please check your data.`);
               return;
             }
 
-            const sheetName = workbook.SheetNames[0];
-            const sheet = workbook.Sheets[sheetName];
-            const jsonData = XLSXLib.utils.sheet_to_json(sheet);
-
-            if (!jsonData || jsonData.length === 0) {
-              alert("Error: The first sheet of this Excel file is empty. Please check your file.");
-              return;
-            }
-
-            const baseCols = Object.keys(jsonData[0]);
-            if (!baseCols.includes(REQUIRED_COLUMN)) {
-              alert(`Error: Required column "${REQUIRED_COLUMN}" is missing in the Excel. Please check your data.`);
-              return;
-            }
-
-            const rows = jsonData.map((row, index) => ({
+            const rows = parsedData.map((row, index) => ({
               ...row,
               _uniqueKey: `row-${Date.now()}-${index}`,
               contributed: row.contributed || '',
               rowColor: row.rowColor || ''
             }));
+
             setData(rows);
-
-            const extra = ['contributed', 'rowColor'].filter((c) => !baseCols.includes(c));
-            setColumns([...baseCols, ...extra]);
+            const extra = ['contributed', 'rowColor'].filter((c) => !fields.includes(c));
+            setColumns([...fields, ...extra]);
+          },
+          error: (err) => {
+            showError(`PapaParse error: ${err.message}`);
           }
-        };
+        });
+      }
 
-        if (file.name.endsWith('.csv')) {
-          reader.readAsText(file);
-        } else {
-          reader.readAsBinaryString(file);
+      // Parse XLSX content
+      function parseXLSX(content) {
+        try {
+          const workbook = XLSXLib.read(content, { type: 'binary' });
+          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            showError("Error: This Excel file has no sheets. Please check your file.");
+            return;
+          }
+
+          const sheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[sheetName];
+          const jsonData = XLSXLib.utils.sheet_to_json(sheet);
+
+          if (!jsonData || jsonData.length === 0) {
+            showError("Error: The first sheet of this Excel file is empty. Please check your file.");
+            return;
+          }
+
+          const baseCols = Object.keys(jsonData[0]);
+          if (!baseCols.includes(REQUIRED_COLUMN)) {
+            showError(`Error: Required column "${REQUIRED_COLUMN}" is missing in the Excel. Please check your data.`);
+            return;
+          }
+
+          const rows = jsonData.map((row, index) => ({
+            ...row,
+            _uniqueKey: `row-${Date.now()}-${index}`,
+            contributed: row.contributed || '',
+            rowColor: row.rowColor || ''
+          }));
+
+          setData(rows);
+          const extra = ['contributed', 'rowColor'].filter((c) => !baseCols.includes(c));
+          setColumns([...baseCols, ...extra]);
+        } catch (err) {
+          showError(`Error reading XLSX: ${err.message}`);
         }
-      };
-
-      // Defensive function: Only allow actions if columns/data are valid
-      const hasValidData = columns.includes(REQUIRED_COLUMN) && data.length > 0;
+      }
 
       // Strips commas, $, etc.
       const sanitizeNumberString = (val) => {
@@ -251,112 +311,143 @@
         return val.replace(/[^\d.-]/g, '');
       };
 
+      // Automatic color logic
       const computeAutoColor = (row) => {
-        if (!hasValidData) return ''; // no color if invalid data
-
-        const amtStr = sanitizeNumberString(row.amount || '');
-        const contrStr = sanitizeNumberString(row.contributed || '');
-
-        if (!amtStr || !contrStr) return ''; 
-        const amount = parseFloat(amtStr) || 0;
-        const contributed = parseFloat(contrStr) || 0;
-        if (amount === 0 && contributed === 0) return '';
-
-        if (contributed > amount) return 'green';
-        if (contributed < amount / 2) return 'red';
-        return 'yellow';
+        try {
+          if (!hasValidData) return ''; 
+          const amtStr = sanitizeNumberString(row.amount || '');
+          const contrStr = sanitizeNumberString(row.contributed || '');
+          if (!amtStr || !contrStr) return '';
+          const amount = parseFloat(amtStr) || 0;
+          const contributed = parseFloat(contrStr) || 0;
+          if (amount === 0 && contributed === 0) return '';
+          if (contributed > amount) return 'green';
+          if (contributed < amount / 2) return 'red';
+          return 'yellow';
+        } catch (err) {
+          showError(`Error computing color: ${err.message}`);
+          return '';
+        }
       };
 
+      // This updates the row's contributed value and color
       const handleContributedChange = (uniqueKey, newValue) => {
         if (!hasValidData) {
-          alert('No valid data loaded. Please upload a valid sheet containing "amount" column.');
+          showError('No valid data loaded. Please upload a valid sheet with "amount" column.');
           return;
         }
-        setData(prevData =>
-          prevData.map(row => {
-            if (row._uniqueKey === uniqueKey) {
-              const updated = { ...row, contributed: newValue };
-              const manual = rowColors[uniqueKey];
-              const auto = computeAutoColor(updated);
-              updated.rowColor = manual || auto;
-              return updated;
-            }
-            return row;
-          })
-        );
+        try {
+          setData(prevData =>
+            prevData.map(row => {
+              if (row._uniqueKey === uniqueKey) {
+                const updated = { ...row, contributed: newValue };
+                const manual = rowColors[uniqueKey];
+                const auto = computeAutoColor(updated);
+                updated.rowColor = manual || auto;
+                return updated;
+              }
+              return row;
+            })
+          );
+        } catch (err) {
+          showError(`Error updating contributed: ${err.message}`);
+        }
       };
 
+      // Manually override color
       const handleRowColor = (uniqueKey, color) => {
         if (!hasValidData) {
-          alert('No valid data loaded. Please upload a valid sheet containing "amount" column.');
+          showError('No valid data loaded. Please upload a valid sheet with "amount" column.');
           return;
         }
-        setRowColors(prev => ({ ...prev, [uniqueKey]: color }));
-
-        setData(prevData =>
-          prevData.map(row => {
-            if (row._uniqueKey === uniqueKey) {
-              if (!color) {
-                // revert to auto
-                const auto = computeAutoColor(row);
-                return { ...row, rowColor: auto };
+        try {
+          setRowColors(prev => ({ ...prev, [uniqueKey]: color }));
+          setData(prevData =>
+            prevData.map(row => {
+              if (row._uniqueKey === uniqueKey) {
+                if (!color) {
+                  const auto = computeAutoColor(row);
+                  return { ...row, rowColor: auto };
+                }
+                return { ...row, rowColor: color };
               }
-              return { ...row, rowColor: color };
-            }
-            return row;
-          })
-        );
+              return row;
+            })
+          );
+        } catch (err) {
+          showError(`Error overriding color: ${err.message}`);
+        }
       };
 
+      // Filter logic
       const handleFilter = (column, value) => {
-        setFilters(prev => ({ ...prev, [column]: value }));
+        try {
+          setFilters(prev => ({ ...prev, [column]: value }));
+        } catch (err) {
+          showError(`Error filtering data: ${err.message}`);
+        }
       };
 
+      // Sort logic
       const handleAmountSort = () => {
         if (!hasValidData) {
-          alert('No valid data loaded or missing "amount" column. Cannot sort.');
+          showError('No valid data loaded or missing "amount" column. Cannot sort.');
           return;
         }
-        setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
-        setSortConfig({ key: 'amount', direction: sortDirection });
+        try {
+          setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+          setSortConfig({ key: 'amount', direction: sortDirection });
+        } catch (err) {
+          showError(`Error sorting by amount: ${err.message}`);
+        }
       };
 
       const handleSort = column => {
         if (!hasValidData) {
-          alert('No valid data loaded. Cannot sort.');
+          showError('No valid data loaded. Cannot sort.');
           return;
         }
-        if (sortConfig.key === column) {
-          setSortConfig({
-            key: column,
-            direction: sortConfig.direction === 'asc' ? 'desc' : 'asc'
-          });
-        } else {
-          setSortConfig({ key: column, direction: 'asc' });
+        try {
+          if (sortConfig.key === column) {
+            setSortConfig({
+              key: column,
+              direction: sortConfig.direction === 'asc' ? 'desc' : 'asc'
+            });
+          } else {
+            setSortConfig({ key: column, direction: 'asc' });
+          }
+        } catch (err) {
+          showError(`Error sorting: ${err.message}`);
         }
       };
 
+      // Derived data: apply filters & sorting
       const filteredAndSortedData = useMemo(() => {
         if (!hasValidData) return [];
 
-        let processed = [...data];
-        Object.keys(filters).forEach(col => {
-          const val = (filters[col] || '').toLowerCase();
-          if (val) {
-            processed = processed.filter(row =>
-              String(row[col] || '').toLowerCase().includes(val)
-            );
-          }
-        });
-
-        if (sortConfig.key === 'amount') {
-          processed.sort((a, b) => {
-            const aVal = parseFloat(sanitizeNumberString(a.amount || '')) || 0;
-            const bVal = parseFloat(sanitizeNumberString(b.amount || '')) || 0;
-            return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+        try {
+          let processed = [...data];
+          Object.keys(filters).forEach(col => {
+            const val = (filters[col] || '').toLowerCase();
+            if (val) {
+              processed = processed.filter(row =>
+                String(row[col] || '').toLowerCase().includes(val)
+              );
+            }
           });
+
+          if (sortConfig.key === 'amount') {
+            processed.sort((a, b) => {
+              const aVal = parseFloat(sanitizeNumberString(a.amount || '')) || 0;
+              const bVal = parseFloat(sanitizeNumberString(b.amount || '')) || 0;
+              return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+            });
+          }
+          return processed;
+        } catch (err) {
+          showError(`Error processing data: ${err.message}`);
+          return [];
         }
-        return processed;
       }, [data, filters, sortConfig, hasValidData]);
 
       // XLSX export
@@ -371,10 +462,9 @@
 
       const handleSave = () => {
         if (!hasValidData || !filteredAndSortedData.length) {
-          alert('No valid data to save. Please upload a sheet with the "amount" column and try again.');
+          showError('No valid data to save. Please upload a sheet with the "amount" column and try again.');
           return;
         }
-
         try {
           const dataToSave = filteredAndSortedData.map(row => {
             const newRow = { ...row };
@@ -439,10 +529,8 @@
           a.download = 'exported_data.xlsx';
           a.click();
           URL.revokeObjectURL(url);
-
         } catch (err) {
-          console.error('Error preparing file:', err);
-          alert('Error preparing file. See console for details.');
+          showError(`Error preparing file for save: ${err.message}`);
         }
       };
 
@@ -555,6 +643,14 @@
               <li>Once finished, click "Save Current View" and it will export your work to an XLSX (Excel) spreadsheet to work with or share elsewhere.</li>
             </ol>
           </div>
+
+          {/* Error Message Section (only visible if errorMessage is non-empty) */}
+          {errorMessage && (
+            <div className="error-box">
+              <h2>Error</h2>
+              <p>{errorMessage}</p>
+            </div>
+          )}
         </div>
       );
     }
