@@ -123,7 +123,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useMemo } = React;
+    const { useState, useMemo, useEffect } = React;
     const XLSXLib = window.XLSX;
     const PapaLib = window.Papa;
 
@@ -132,7 +132,8 @@
       const [columns, setColumns] = useState([]);
       const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
       const [filters, setFilters] = useState({});
-      // Track any manual overrides by _uniqueKey
+      // Track "manual overrides" in memory for each row
+      // If rowColors[uniqueKey] is non-empty => override
       const [rowColors, setRowColors] = useState({});
       const [sortDirection, setSortDirection] = useState('asc');
 
@@ -151,15 +152,15 @@
                 const rows = results.data.map((row, index) => ({
                   ...row,
                   _uniqueKey: `row-${Date.now()}-${index}`,
-                  // Ensure contributed property exists
+                  // Ensure contributed property
                   contributed: row.contributed || '',
-                  // Keep or create rowColor if it exists
+                  // If the file has rowColor, use it, else empty
                   rowColor: row.rowColor || ''
                 }));
                 setData(rows);
 
+                // Ensure we have contributed & rowColor in columns
                 const fields = results.meta.fields || [];
-                // Ensure we have 'contributed' and 'rowColor' in columns
                 const extra = ['contributed', 'rowColor'].filter((c) => !fields.includes(c));
                 setColumns([...fields, ...extra]);
               }
@@ -198,11 +199,10 @@
       };
 
       // Automatic color logic based on "amount" vs. "contributed".
-      // No highlight if either is missing/empty or zero.
-      // Otherwise:
-      //  - Green if contributed > amount
-      //  - Red if contributed < amount/2
-      //  - Yellow otherwise
+      //  If either is missing => no color
+      //  If contributed > amount => green
+      //  If contributed < amount/2 => red
+      //  else => yellow
       const computeAutoColor = (row) => {
         const amtStr = sanitizeNumberString(row.amount || '');
         const contrStr = sanitizeNumberString(row.contributed || '');
@@ -211,11 +211,7 @@
 
         const amount = parseFloat(amtStr) || 0;
         const contributed = parseFloat(contrStr) || 0;
-
-        if (amount === 0 && contributed === 0) {
-          // If both are zero, no highlight
-          return '';
-        }
+        if (amount === 0 && contributed === 0) return '';
 
         if (contributed > amount) {
           return 'green';
@@ -226,28 +222,51 @@
         }
       };
 
-      // Final color = manual override OR computed
-      const getRowColor = (row) => {
-        return rowColors[row._uniqueKey] || computeAutoColor(row);
+      // Figure out final color for a row: manual override or auto
+      const getEffectiveColor = (uniqueKey, row) => {
+        return rowColors[uniqueKey] || computeAutoColor(row);
       };
 
-      // Manual override
+      // Called whenever user changes the contributed field => update data + rowColor
+      const handleContributedChange = (uniqueKey, newValue) => {
+        setData((prevData) => {
+          return prevData.map((row) => {
+            if (row._uniqueKey === uniqueKey) {
+              // Update contributed
+              const updatedRow = { ...row, contributed: newValue };
+              // If there's a manual override, keep rowColor as the override
+              // else auto-calc rowColor
+              const manual = rowColors[uniqueKey];
+              const auto = computeAutoColor(updatedRow);
+              const finalColor = manual || auto;
+              updatedRow.rowColor = finalColor;
+              return updatedRow;
+            }
+            return row;
+          });
+        });
+      };
+
+      // Manual override color => also store in rowColor column
       const handleRowColor = (uniqueKey, color) => {
         setRowColors((prev) => ({
           ...prev,
           [uniqueKey]: color
         }));
-      };
-
-      // Called on every keystroke in 'contributed' so the highlight updates immediately
-      const handleContributedChange = (uniqueKey, newValue) => {
-        setData((prevData) =>
-          prevData.map((row) =>
-            row._uniqueKey === uniqueKey
-              ? { ...row, contributed: newValue }
-              : row
-          )
-        );
+        setData((prevData) => {
+          return prevData.map((row) => {
+            if (row._uniqueKey === uniqueKey) {
+              // If color is '', revert to auto
+              if (!color) {
+                const auto = computeAutoColor(row);
+                return { ...row, rowColor: auto };
+              }
+              // Else, override with color
+              return { ...row, rowColor: color };
+            }
+            return row;
+          });
+        });
       };
 
       // Filter logic
@@ -313,9 +332,10 @@
       const handleSave = () => {
         if (!filteredAndSortedData.length) return;
 
+        // Prepare data for saving
         const dataToSave = filteredAndSortedData.map((row) => {
           const newRow = { ...row };
-          delete newRow._uniqueKey;
+          delete newRow._uniqueKey; // internal only
           return newRow;
         });
 
@@ -323,10 +343,10 @@
           const wb = XLSXLib.utils.book_new();
           const ws = XLSXLib.utils.json_to_sheet(dataToSave);
 
-          // Style each row
+          // Apply color styling
           filteredAndSortedData.forEach((row, idx) => {
-            const colorName = getRowColor(row);
-            if (!colorName) return; // No highlight => skip styling
+            const colorName = row.rowColor || ''; // rowColor is always up to date
+            if (!colorName) return; // skip if no color
 
             const colorMap = {
               green: {
@@ -416,10 +436,7 @@
                 )
               ))}
             </div>
-            {/*
-              If your data has "amount", this button toggles ascending/descending sort
-              for that column.
-            */}
+            {/* Sort by "amount" if you have that column */}
             <button
               className="sort-button"
               onClick={handleAmountSort}
@@ -449,13 +466,14 @@
               </thead>
               <tbody>
                 {filteredAndSortedData.map((row) => {
-                  const rowHighlight = getRowColor(row); 
+                  // row.rowColor is the final color stored in data
+                  const highlightClass = row.rowColor ? `row-${row.rowColor}` : '';
                   return (
                     <tr
                       key={row._uniqueKey}
-                      className={rowHighlight ? `row-${rowHighlight}` : ''}
+                      className={highlightClass}
                     >
-                      {/* Manual color overrides (optional) */}
+                      {/* Buttons to manually override or revert to auto color */}
                       <td>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
@@ -464,11 +482,11 @@
                       </td>
                       {columns.map((col) => {
                         if (col === 'rowColor') {
-                          // Show or hide as you prefer
+                          // Show or hide this column as you prefer
                           return <td key={col}>{row.rowColor}</td>;
                         }
                         if (col === 'contributed') {
-                          // Update immediately on any change
+                          // Changes are immediate => re-check color logic
                           return (
                             <td key={col}>
                               <input
