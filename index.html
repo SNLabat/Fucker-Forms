@@ -161,18 +161,14 @@
       const [columns, setColumns] = useState([]);
       const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
       const [filters, setFilters] = useState({});
-      // Manual color overrides
       const [rowColors, setRowColors] = useState({});
       const [sortDirection, setSortDirection] = useState('asc');
-
-      // We'll store any error here and display it in the UI
       const [errorMessage, setErrorMessage] = useState('');
 
-      // We want to accept any case for "amount"
-      // But eventually store data under row.amount in the code
-      const REQUIRED_COLUMN = 'amount';
+      // We'll unify "amount" and "description" ignoring case
+      // Then store them in row.amount & row.description
+      // The user can then filter/sort by "amount" or "description".
 
-      // Clears all data and columns
       function resetState() {
         setData([]);
         setColumns([]);
@@ -181,22 +177,22 @@
         setSortConfig({ key: null, direction: 'asc' });
       }
 
-      // True if we have the 'amount' column (any case) & at least 1 row
-      // We do a check in the parse logic, so here we just see if 'amount' is in columns
-      const hasValidData = columns.includes('amount') && data.length > 0;
-
-      // Safely set an error message
-      function showError(message) {
-        setErrorMessage(message);
+      // We require "amount" (any case). "description" is not strictly required, 
+      // but if it’s present, we unify it. 
+      function hasValidData() {
+        // Must have a column "amount"
+        return columns.includes('amount') && data.length > 0;
       }
 
-      // Clear error message
+      function showError(msg) {
+        setErrorMessage(msg);
+      }
       function clearError() {
         setErrorMessage('');
       }
 
-      const handleFileUpload = (event) => {
-        const file = event.target.files[0];
+      const handleFileUpload = (e) => {
+        const file = e.target.files[0];
         if (!file) {
           showError('No file selected.');
           return;
@@ -207,13 +203,12 @@
 
         try {
           const reader = new FileReader();
-          reader.onload = (e) => {
-            const content = e.target.result;
-
+          reader.onload = (ev) => {
+            const content = ev.target.result;
             try {
-              if (file.name.endsWith('.csv')) {
+              if (file.name.toLowerCase().endsWith('.csv')) {
                 parseCSV(content);
-              } else if (file.name.endsWith('.xlsx')) {
+              } else if (file.name.toLowerCase().endsWith('.xlsx')) {
                 parseXLSX(content);
               } else {
                 showError('Unsupported file type. Please upload a .csv or .xlsx file.');
@@ -223,7 +218,7 @@
             }
           };
 
-          if (file.name.endsWith('.csv')) {
+          if (file.name.toLowerCase().endsWith('.csv')) {
             reader.readAsText(file);
           } else {
             reader.readAsBinaryString(file);
@@ -233,72 +228,81 @@
         }
       };
 
-      // Convert any case of AMOUNT/Amount to "amount" in row
-      function unifyAmountCase(row) {
-        // Find the actual key that has 'amount' ignoring case
-        const key = Object.keys(row).find(k => k.toLowerCase() === 'amount');
-        if (key && key !== 'amount') {
-          // Move the data from row[key] => row.amount
-          row.amount = row[key];
-          // Optionally remove the old property
-          delete row[key];
+      // unifyCaseInRow => renames any "Amount"/"AMOUNT"/etc -> row.amount
+      // and any "description"/"DESCRIPTION" -> row.description
+      function unifyCaseInRow(row) {
+        // For amount
+        const amtKey = Object.keys(row).find(k => k.toLowerCase() === 'amount');
+        if (amtKey && amtKey !== 'amount') {
+          row.amount = row[amtKey];
+          delete row[amtKey];
+        }
+        // For description
+        const descKey = Object.keys(row).find(k => k.toLowerCase() === 'description');
+        if (descKey && descKey !== 'description') {
+          row.description = row[descKey];
+          delete row[descKey];
         }
         return row;
       }
 
-      // Similarly for columns
-      function unifyAmountCaseInColumns(colList) {
-        // if we find 'Amount', 'AMOUNT', etc., rename it to 'amount'
+      // unifyCaseInColumns => "Amount"/"AMOUNT" => "amount", "description"/"Description" => "description"
+      function unifyCaseInColumns(colList) {
         return colList.map(col => {
-          return (col.toLowerCase() === 'amount') ? 'amount' : col;
+          const lower = col.toLowerCase();
+          if (lower === 'amount') {
+            return 'amount';
+          } else if (lower === 'description') {
+            return 'description';
+          }
+          return col;
         });
       }
 
-      // Parse CSV content
+      // CSV parse
       function parseCSV(content) {
         PapaLib.parse(content, {
           header: true,
           complete: (results) => {
-            const parsedData = results.data;
+            const rowsRaw = results.data;
             let fields = results.meta.fields || [];
 
-            if (!parsedData || parsedData.length === 0) {
-              showError("Error: CSV is empty. Please check your file.");
+            if (!rowsRaw || rowsRaw.length === 0) {
+              showError('Error: CSV is empty. Please check your file.');
               return;
             }
 
-            // 1) unify the column name "amount"
-            fields = unifyAmountCaseInColumns(fields);
+            // unify column names
+            fields = unifyCaseInColumns(fields);
 
-            // 2) check if 'amount' is present (the unified version)
+            // Must have "amount" after unifying
             if (!fields.includes('amount')) {
               showError('Error: Required column "amount" (any case) is missing in CSV.');
               return;
             }
 
-            // Ensure we have difference, contributed, rowColor
+            // Ensure difference, contributed, rowColor
             if (!fields.includes('difference')) fields.push('difference');
             if (!fields.includes('contributed')) fields.push('contributed');
             if (!fields.includes('rowColor')) fields.push('rowColor');
+            // If "description" was found in some case, it’s now "description" in fields
 
-            // 3) unify row's "amount" property, compute difference
-            const rows = parsedData.map((rawRow, index) => {
-              const row = unifyAmountCase({ ...rawRow });
-              // sanitize + compute difference
+            // unify each row, compute difference
+            const finalRows = rowsRaw.map((rawRow, idx) => {
+              const row = unifyCaseInRow({ ...rawRow });
               const amountNum = parseFloat(sanitizeNumberString(row.amount)) || 0;
               const contribNum = parseFloat(sanitizeNumberString(row.contributed)) || 0;
               const diff = contribNum - amountNum;
-
               return {
                 ...row,
-                _uniqueKey: `row-${Date.now()}-${index}`,
+                _uniqueKey: `row-${Date.now()}-${idx}`,
                 contributed: row.contributed || '',
                 rowColor: row.rowColor || '',
                 difference: diff.toString()
               };
             });
 
-            setData(rows);
+            setData(finalRows);
             setColumns(fields);
           },
           error: (err) => {
@@ -307,75 +311,67 @@
         });
       }
 
-      // Parse XLSX content
+      // XLSX parse
       function parseXLSX(content) {
         try {
           const workbook = XLSXLib.read(content, { type: 'binary' });
           if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-            showError("Error: This Excel file has no sheets. Please check your file.");
+            showError('Error: This Excel file has no sheets. Please check your file.');
             return;
           }
 
           const sheetName = workbook.SheetNames[0];
           const sheet = workbook.Sheets[sheetName];
           const jsonData = XLSXLib.utils.sheet_to_json(sheet);
-
           if (!jsonData || jsonData.length === 0) {
-            showError("Error: The first sheet of this Excel file is empty. Please check your file.");
+            showError('Error: The first sheet of this Excel file is empty. Please check your file.');
             return;
           }
 
-          // We unify columns by scanning first row
+          // unify columns from the first row
           let baseCols = Object.keys(jsonData[0]);
-          baseCols = unifyAmountCaseInColumns(baseCols);
+          baseCols = unifyCaseInColumns(baseCols);
 
-          // Check if we have 'amount' after unifying
           if (!baseCols.includes('amount')) {
-            showError('Error: Required column "amount" (any case) is missing in the Excel.');
+            showError('Error: Required column "amount" (any case) is missing in Excel.');
             return;
           }
 
-          // Ensure difference, contributed, rowColor
           if (!baseCols.includes('difference')) baseCols.push('difference');
           if (!baseCols.includes('contributed')) baseCols.push('contributed');
           if (!baseCols.includes('rowColor')) baseCols.push('rowColor');
 
-          // unify row's "amount" property
-          const rows = jsonData.map((rawRow, index) => {
-            const row = unifyAmountCase({ ...rawRow });
+          const finalRows = jsonData.map((rawRow, idx) => {
+            const row = unifyCaseInRow({ ...rawRow });
             const amountNum = parseFloat(sanitizeNumberString(row.amount)) || 0;
             const contribNum = parseFloat(sanitizeNumberString(row.contributed)) || 0;
             const diff = contribNum - amountNum;
-
             return {
               ...row,
-              _uniqueKey: `row-${Date.now()}-${index}`,
+              _uniqueKey: `row-${Date.now()}-${idx}`,
               contributed: row.contributed || '',
               rowColor: row.rowColor || '',
               difference: diff.toString()
             };
           });
 
-          setData(rows);
+          setData(finalRows);
           setColumns(baseCols);
         } catch (err) {
           showError(`Error reading XLSX: ${err.message}`);
         }
       }
 
-      // Strips commas, $, etc.
-      // Now ensures "val" is always a string to avoid "val.replace is not a function".
+      // sanitize input for parseFloat
       function sanitizeNumberString(val) {
         if (val === null || val === undefined) return '';
-        // Convert to string before .replace
         const str = String(val);
         return str.replace(/[^\d.-]/g, '');
       }
 
-      // Automatic color logic
-      const computeAutoColor = (row) => {
+      function computeAutoColor(row) {
         try {
-          if (!hasValidData) return '';
+          if (!hasValidData()) return '';
           const amtStr = sanitizeNumberString(row.amount || '');
           const contrStr = sanitizeNumberString(row.contributed || '');
           if (!amtStr || !contrStr) return '';
@@ -389,80 +385,68 @@
           showError(`Error computing color: ${err.message}`);
           return '';
         }
-      };
+      }
 
-      // This updates the row's contributed value and color
-      // Also re-calculates difference = contributed - amount
-      const handleContributedChange = (uniqueKey, newValue) => {
-        if (!hasValidData) {
+      function handleContributedChange(uniqueKey, newVal) {
+        if (!hasValidData()) {
           showError('No valid data loaded. Please upload a valid sheet with "amount" column.');
           return;
         }
         try {
-          setData(prevData =>
-            prevData.map(row => {
-              if (row._uniqueKey === uniqueKey) {
-                // Recompute difference
-                const amountNum = parseFloat(sanitizeNumberString(row.amount)) || 0;
-                const contribNum = parseFloat(sanitizeNumberString(newValue)) || 0;
-                const diff = contribNum - amountNum;
-
-                const updated = {
-                  ...row,
-                  contributed: newValue,
-                  difference: diff.toString()
-                };
-
-                const manual = rowColors[uniqueKey];
-                const auto = computeAutoColor(updated);
-                updated.rowColor = manual || auto;
-                return updated;
-              }
-              return row;
-            })
-          );
+          setData(prev => prev.map(row => {
+            if (row._uniqueKey === uniqueKey) {
+              const amountNum = parseFloat(sanitizeNumberString(row.amount)) || 0;
+              const contribNum = parseFloat(sanitizeNumberString(newVal)) || 0;
+              const diff = contribNum - amountNum;
+              const manual = rowColors[uniqueKey];
+              const updated = {
+                ...row,
+                contributed: newVal,
+                difference: diff.toString()
+              };
+              updated.rowColor = manual || computeAutoColor(updated);
+              return updated;
+            }
+            return row;
+          }));
         } catch (err) {
           showError(`Error updating contributed: ${err.message}`);
         }
-      };
+      }
 
-      // Manually override color
-      const handleRowColor = (uniqueKey, color) => {
-        if (!hasValidData) {
+      function handleRowColor(uniqueKey, color) {
+        if (!hasValidData()) {
           showError('No valid data loaded. Please upload a valid sheet with "amount" column.');
           return;
         }
         try {
           setRowColors(prev => ({ ...prev, [uniqueKey]: color }));
-          setData(prevData =>
-            prevData.map(row => {
-              if (row._uniqueKey === uniqueKey) {
-                if (!color) {
-                  const auto = computeAutoColor(row);
-                  return { ...row, rowColor: auto };
-                }
-                return { ...row, rowColor: color };
+          setData(prev => prev.map(row => {
+            if (row._uniqueKey === uniqueKey) {
+              if (!color) {
+                // revert to auto
+                const auto = computeAutoColor(row);
+                return { ...row, rowColor: auto };
               }
-              return row;
-            })
-          );
+              return { ...row, rowColor: color };
+            }
+            return row;
+          }));
         } catch (err) {
           showError(`Error overriding color: ${err.message}`);
         }
-      };
+      }
 
-      // Filter logic
-      const handleFilter = (column, value) => {
+      function handleFilter(column, value) {
         try {
           setFilters(prev => ({ ...prev, [column]: value }));
         } catch (err) {
           showError(`Error filtering data: ${err.message}`);
         }
-      };
+      }
 
-      // Sort logic
-      const handleAmountSort = () => {
-        if (!hasValidData) {
+      function handleAmountSort() {
+        if (!hasValidData()) {
           showError('No valid data loaded or missing "amount" column. Cannot sort.');
           return;
         }
@@ -472,30 +456,29 @@
         } catch (err) {
           showError(`Error sorting by amount: ${err.message}`);
         }
-      };
+      }
 
-      const handleSort = column => {
-        if (!hasValidData) {
+      function handleSort(col) {
+        if (!hasValidData()) {
           showError('No valid data loaded. Cannot sort.');
           return;
         }
         try {
-          if (sortConfig.key === column) {
+          if (sortConfig.key === col) {
             setSortConfig({
-              key: column,
+              key: col,
               direction: sortConfig.direction === 'asc' ? 'desc' : 'asc'
             });
           } else {
-            setSortConfig({ key: column, direction: 'asc' });
+            setSortConfig({ key: col, direction: 'asc' });
           }
         } catch (err) {
           showError(`Error sorting: ${err.message}`);
         }
-      };
+      }
 
-      // Derived data: apply filters & sorting
       const filteredAndSortedData = useMemo(() => {
-        if (!hasValidData) return [];
+        if (!hasValidData()) return [];
 
         try {
           let processed = [...data];
@@ -520,9 +503,8 @@
           showError(`Error processing data: ${err.message}`);
           return [];
         }
-      }, [data, filters, sortConfig, hasValidData]);
+      }, [data, filters, sortConfig]);
 
-      // XLSX export
       function s2ab(s) {
         const buf = new ArrayBuffer(s.length);
         const view = new Uint8Array(buf);
@@ -532,8 +514,8 @@
         return buf;
       }
 
-      const handleSave = () => {
-        if (!hasValidData || !filteredAndSortedData.length) {
+      function handleSave() {
+        if (!hasValidData() || !filteredAndSortedData.length) {
           showError('No valid data to save. Please upload a sheet with the "amount" column and try again.');
           return;
         }
@@ -547,7 +529,7 @@
           const wb = XLSXLib.utils.book_new();
           const ws = XLSXLib.utils.json_to_sheet(dataToSave);
 
-          // Color-styling each row
+          // Color styling
           filteredAndSortedData.forEach((row, idx) => {
             const colorName = row.rowColor || '';
             if (!colorName) return;
@@ -595,14 +577,12 @@
 
           XLSXLib.utils.book_append_sheet(wb, ws, 'Sheet1');
 
-          // Use XLSXLib.write(...) (NOT XLSXLib.utils.write)
           const wbout = XLSXLib.write(wb, {
             bookType: 'xlsx',
             type: 'binary',
             cellStyles: true
           });
 
-          // Convert to blob and download
           const blob = new Blob([s2ab(wbout)], { type: 'application/octet-stream' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
@@ -613,7 +593,7 @@
         } catch (err) {
           showError(`Error preparing file for save: ${err.message}`);
         }
-      };
+      }
 
       return (
         <div className="container">
@@ -622,7 +602,7 @@
             <button
               className="save-button"
               onClick={handleSave}
-              disabled={!hasValidData}
+              disabled={!hasValidData()}
             >
               Save Current View
             </button>
@@ -630,7 +610,8 @@
 
           <div className="filters-and-sort">
             <div className="filters">
-              {['action', 'description', 'done_at', 'amount', 'difference'].map(col => (
+              {/* We can list potential columns, but only show if they're in "columns" after unifying */}
+              {['description', 'amount', 'difference', 'contributed'].map(col => (
                 columns.includes(col) && (
                   <div key={col}>
                     <label>{col}: </label>
@@ -638,7 +619,7 @@
                       type="text"
                       onChange={e => handleFilter(col, e.target.value)}
                       placeholder={`Filter ${col}...`}
-                      disabled={!hasValidData}
+                      disabled={!hasValidData()}
                     />
                   </div>
                 )
@@ -647,7 +628,7 @@
             <button
               className="sort-button"
               onClick={handleAmountSort}
-              disabled={!columns.includes('amount') || !hasValidData}
+              disabled={!columns.includes('amount') || !hasValidData()}
             >
               Sort Amount {sortDirection === 'asc' ? '↑' : '↓'}
             </button>
@@ -717,12 +698,31 @@
           <div className="instructions">
             <h2>Instructions:</h2>
             <ol>
-              <li>Upload the CSV or XLSX exported from the PD account.  The “amount” column can be in any case (e.g. "AMOUNT", "Amount", "amount").</li>
-              <li>You can filter by action, description, or amount. You will more than likely want to filter by "salary" in descriptions.</li>
-              <li>Once filtered, you can hit "Sort Amount" to sort the sheet by highest to lowest or lowest to highest.</li>
-              <li>You can either manually mark a row or input the amount "contributed" and it will auto-calculate the color based on the amount.</li>
-              <li>A “difference” column shows <code>(contributed - amount)</code>. It updates automatically when you type in a new contributed value.</li>
-              <li>Once finished, click "Save Current View" and it will export your work to an XLSX (Excel) spreadsheet to work with or share elsewhere.</li>
+              <li>
+                Upload a CSV or XLSX with columns for <code>description</code> 
+                and <code>amount</code> in any case (e.g. <code>DESCRIPTION</code>, 
+                <code>AMOUNT</code>, etc.).
+              </li>
+              <li>
+                The app will unify them to lowercase <code>description</code> 
+                and <code>amount</code>.
+              </li>
+              <li>
+                Filter or sort by <code>description</code>, <code>amount</code>, or
+                other columns (e.g. <code>difference</code>, <code>contributed</code>).
+              </li>
+              <li>
+                When you edit the <code>contributed</code> field, the row color
+                recalculates automatically based on <code>amount</code>, and 
+                a <code>difference</code> column shows <code>(contributed - amount)</code>.
+              </li>
+              <li>
+                Manually override row colors with the buttons (Green/Yellow/Red/Auto).
+              </li>
+              <li>
+                Click <strong>Save Current View</strong> to export to XLSX with 
+                the coloring. 
+              </li>
             </ol>
           </div>
 
