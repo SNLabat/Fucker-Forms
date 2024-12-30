@@ -147,12 +147,11 @@
       const [columns, setColumns] = useState([]);
       const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
       const [filters, setFilters] = useState({});
-      // Track "manual overrides" in memory for each row
+      // Manual color overrides
       const [rowColors, setRowColors] = useState({});
       const [sortDirection, setSortDirection] = useState('asc');
 
-      // This is the required column name for our checks.
-      // If you need multiple required columns, adapt logic accordingly.
+      // We require "amount" column. If you need more, adapt checks below
       const REQUIRED_COLUMN = 'amount';
 
       const handleFileUpload = (event) => {
@@ -163,20 +162,24 @@
         reader.onload = (e) => {
           const content = e.target.result;
 
-          // Handle CSV
+          // Reset data/columns so user actions won't break the UI if new file fails
+          setData([]);
+          setColumns([]);
+          setRowColors({});
+          setFilters({});
+          setSortConfig({ key: null, direction: 'asc' });
+
           if (file.name.endsWith('.csv')) {
             PapaLib.parse(content, {
               header: true,
               complete: (results) => {
-                const parsedData = results.data; // Array of row objects
+                const parsedData = results.data;
                 const fields = results.meta.fields || [];
 
-                // Check if there's any data
                 if (!parsedData || parsedData.length === 0) {
                   alert("Error: CSV is empty. Please check your file.");
                   return;
                 }
-                // Check if the required column is present
                 if (!fields.includes(REQUIRED_COLUMN)) {
                   alert(`Error: Required column "${REQUIRED_COLUMN}" is missing in CSV. Please check your data.`);
                   return;
@@ -188,16 +191,13 @@
                   contributed: row.contributed || '',
                   rowColor: row.rowColor || ''
                 }));
-
                 setData(rows);
 
-                // Ensure we have contributed & rowColor
                 const extra = ['contributed', 'rowColor'].filter((c) => !fields.includes(c));
                 setColumns([...fields, ...extra]);
               }
             });
           }
-          // Handle XLSX
           else if (file.name.endsWith('.xlsx')) {
             const workbook = XLSXLib.read(content, { type: 'binary' });
 
@@ -216,7 +216,6 @@
               return;
             }
 
-            // Now we can safely access jsonData[0]
             const baseCols = Object.keys(jsonData[0]);
             if (!baseCols.includes(REQUIRED_COLUMN)) {
               alert(`Error: Required column "${REQUIRED_COLUMN}" is missing in the Excel. Please check your data.`);
@@ -243,96 +242,90 @@
         }
       };
 
-      // Sanitize for parseFloat
+      // Defensive function: Only allow actions if columns/data are valid
+      const hasValidData = columns.includes(REQUIRED_COLUMN) && data.length > 0;
+
+      // Strips commas, $, etc.
       const sanitizeNumberString = (val) => {
         if (!val) return '';
         return val.replace(/[^\d.-]/g, '');
       };
 
-      // Automatic color logic based on "amount" vs. "contributed".
-      //  If either is missing => no color
-      //  If contributed > amount => green
-      //  If contributed < amount/2 => red
-      //  else => yellow
       const computeAutoColor = (row) => {
+        if (!hasValidData) return ''; // no color if invalid data
+
         const amtStr = sanitizeNumberString(row.amount || '');
         const contrStr = sanitizeNumberString(row.contributed || '');
 
-        if (!amtStr || !contrStr) return ''; // No highlight if either is empty
-
+        if (!amtStr || !contrStr) return ''; 
         const amount = parseFloat(amtStr) || 0;
         const contributed = parseFloat(contrStr) || 0;
         if (amount === 0 && contributed === 0) return '';
 
-        if (contributed > amount) {
-          return 'green';
-        } else if (contributed < amount / 2) {
-          return 'red';
-        } else {
-          return 'yellow';
-        }
+        if (contributed > amount) return 'green';
+        if (contributed < amount / 2) return 'red';
+        return 'yellow';
       };
 
-      // Get final color: manual override or auto
-      const getEffectiveColor = (uniqueKey, row) => {
-        return rowColors[uniqueKey] || computeAutoColor(row);
-      };
-
-      // On each contributed change => immediate update
       const handleContributedChange = (uniqueKey, newValue) => {
-        setData((prevData) => {
-          return prevData.map((row) => {
+        if (!hasValidData) {
+          alert('No valid data loaded. Please upload a valid sheet containing "amount" column.');
+          return;
+        }
+        setData(prevData =>
+          prevData.map(row => {
             if (row._uniqueKey === uniqueKey) {
               const updated = { ...row, contributed: newValue };
               const manual = rowColors[uniqueKey];
               const auto = computeAutoColor(updated);
-              // If there's a manual override, keep rowColor as override
-              // else auto
               updated.rowColor = manual || auto;
               return updated;
             }
             return row;
-          });
-        });
+          })
+        );
       };
 
-      // Manually override color
       const handleRowColor = (uniqueKey, color) => {
-        setRowColors((prev) => ({
-          ...prev,
-          [uniqueKey]: color
-        }));
-        setData((prevData) => {
-          return prevData.map((row) => {
+        if (!hasValidData) {
+          alert('No valid data loaded. Please upload a valid sheet containing "amount" column.');
+          return;
+        }
+        setRowColors(prev => ({ ...prev, [uniqueKey]: color }));
+
+        setData(prevData =>
+          prevData.map(row => {
             if (row._uniqueKey === uniqueKey) {
               if (!color) {
                 // revert to auto
                 const auto = computeAutoColor(row);
                 return { ...row, rowColor: auto };
               }
-              // else override
               return { ...row, rowColor: color };
             }
             return row;
-          });
-        });
+          })
+        );
       };
 
-      // Filter logic
       const handleFilter = (column, value) => {
-        setFilters((prev) => ({
-          ...prev,
-          [column]: value
-        }));
+        setFilters(prev => ({ ...prev, [column]: value }));
       };
 
-      // Sort logic for 'amount'
       const handleAmountSort = () => {
-        setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+        if (!hasValidData) {
+          alert('No valid data loaded or missing "amount" column. Cannot sort.');
+          return;
+        }
+        setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
         setSortConfig({ key: 'amount', direction: sortDirection });
       };
 
-      const handleSort = (column) => {
+      const handleSort = column => {
+        if (!hasValidData) {
+          alert('No valid data loaded. Cannot sort.');
+          return;
+        }
         if (sortConfig.key === column) {
           setSortConfig({
             key: column,
@@ -344,19 +337,18 @@
       };
 
       const filteredAndSortedData = useMemo(() => {
-        let processed = [...data];
+        if (!hasValidData) return [];
 
-        // Filtering
-        Object.keys(filters).forEach((col) => {
+        let processed = [...data];
+        Object.keys(filters).forEach(col => {
           const val = (filters[col] || '').toLowerCase();
           if (val) {
-            processed = processed.filter((row) =>
+            processed = processed.filter(row =>
               String(row[col] || '').toLowerCase().includes(val)
             );
           }
         });
 
-        // Sort by 'amount' if requested
         if (sortConfig.key === 'amount') {
           processed.sort((a, b) => {
             const aVal = parseFloat(sanitizeNumberString(a.amount || '')) || 0;
@@ -364,12 +356,11 @@
             return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
           });
         }
-
         return processed;
-      }, [data, filters, sortConfig]);
+      }, [data, filters, sortConfig, hasValidData]);
 
-      // XLSX export helper
-      const s2ab = (s) => {
+      // XLSX export
+      const s2ab = s => {
         const buf = new ArrayBuffer(s.length);
         const view = new Uint8Array(buf);
         for (let i = 0; i < s.length; i++) {
@@ -378,21 +369,22 @@
         return buf;
       };
 
-      // Export current table as XLSX with color styling
       const handleSave = () => {
-        if (!filteredAndSortedData.length) return;
-
-        const dataToSave = filteredAndSortedData.map((row) => {
-          const newRow = { ...row };
-          delete newRow._uniqueKey;
-          return newRow;
-        });
+        if (!hasValidData || !filteredAndSortedData.length) {
+          alert('No valid data to save. Please upload a sheet with the "amount" column and try again.');
+          return;
+        }
 
         try {
+          const dataToSave = filteredAndSortedData.map(row => {
+            const newRow = { ...row };
+            delete newRow._uniqueKey;
+            return newRow;
+          });
+
           const wb = XLSXLib.utils.book_new();
           const ws = XLSXLib.utils.json_to_sheet(dataToSave);
 
-          // Apply color styling from rowColor
           filteredAndSortedData.forEach((row, idx) => {
             const colorName = row.rowColor || '';
             if (!colorName) return;
@@ -432,8 +424,7 @@
             });
           });
 
-          // Column widths
-          const colWidths = columns.map((col) => ({
+          const colWidths = columns.map(col => ({
             wch: col === 'contributed' ? 15 : Math.max(col.length, 10)
           }));
           ws['!cols'] = colWidths;
@@ -441,7 +432,6 @@
           XLSXLib.utils.book_append_sheet(wb, ws, 'Sheet1');
           const wbout = XLSXLib.utils.write(wb, { bookType: 'xlsx', type: 'binary', cellStyles: true });
 
-          // Trigger download
           const blob = new Blob([s2ab(wbout)], { type: 'application/octet-stream' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
@@ -463,7 +453,7 @@
             <button
               className="save-button"
               onClick={handleSave}
-              disabled={data.length === 0}
+              disabled={!hasValidData}
             >
               Save Current View
             </button>
@@ -471,25 +461,24 @@
 
           <div className="filters-and-sort">
             <div className="filters">
-              {/* Example filters. Adapt for your columns */}
-              {['action', 'description', 'done_at', 'amount'].map((col) => (
+              {['action', 'description', 'done_at', 'amount'].map(col => (
                 columns.includes(col) && (
                   <div key={col}>
                     <label>{col}: </label>
                     <input
                       type="text"
-                      onChange={(e) => handleFilter(col, e.target.value)}
+                      onChange={e => handleFilter(col, e.target.value)}
                       placeholder={`Filter ${col}...`}
+                      disabled={!hasValidData}
                     />
                   </div>
                 )
               ))}
             </div>
-            {/* Sort button if 'amount' column is present */}
             <button
               className="sort-button"
               onClick={handleAmountSort}
-              disabled={!columns.includes('amount')}
+              disabled={!columns.includes('amount') || !hasValidData}
             >
               Sort Amount {sortDirection === 'asc' ? '↑' : '↓'}
             </button>
@@ -500,7 +489,7 @@
               <thead>
                 <tr>
                   <th>Row Actions</th>
-                  {columns.map((col) => (
+                  {columns.map(col => (
                     <th
                       key={col}
                       onClick={() => handleSort(col)}
@@ -514,7 +503,7 @@
                 </tr>
               </thead>
               <tbody>
-                {filteredAndSortedData.map((row) => {
+                {filteredAndSortedData.map(row => {
                   const highlightClass = row.rowColor ? `row-${row.rowColor}` : '';
                   return (
                     <tr key={row._uniqueKey} className={highlightClass}>
@@ -524,7 +513,7 @@
                         <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, '')}>Auto</button>
                       </td>
-                      {columns.map((col) => {
+                      {columns.map(col => {
                         if (col === 'rowColor') {
                           return <td key={col}>{row.rowColor}</td>;
                         }
@@ -534,7 +523,7 @@
                               <input
                                 type="text"
                                 value={row.contributed || ''}
-                                onChange={(e) => handleContributedChange(row._uniqueKey, e.target.value)}
+                                onChange={e => handleContributedChange(row._uniqueKey, e.target.value)}
                                 style={{
                                   width: '100px',
                                   padding: '4px',
