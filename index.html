@@ -128,13 +128,8 @@
 <body>
   <div id="root"></div>
 
-  <!-- Your React code -->
   <script type="text/babel">
-
     const { useState, useMemo } = React;
-
-    // We'll grab XLSX from the global scope (from the <script src="xlsx.full.min.js"> above).
-    // Same for Papa (PapaParse).
     const XLSXLib = window.XLSX;
     const PapaLib = window.Papa;
 
@@ -146,51 +141,47 @@
       const [rowColors, setRowColors] = useState({});
       const [sortDirection, setSortDirection] = useState('asc');
 
-      // If your data doesn't have "salary" or "contributed" columns, 
-      // you'll need to rename columns or adapt the logic accordingly.
+      // This local state "buffers" the user's typed value for the contributed column
+      // so we only commit it to the main 'data' state when Enter is pressed.
+      const [editingContributions, setEditingContributions] = useState({});
+
       const handleFileUpload = (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
-
         reader.onload = (e) => {
           const content = e.target.result;
-          // If it's CSV
+
           if (file.name.endsWith('.csv')) {
             PapaLib.parse(content, {
               header: true,
               complete: (results) => {
-                const dataWithUniqueKeys = results.data.map((row, index) => ({
+                const rows = results.data.map((row, index) => ({
                   ...row,
                   _uniqueKey: `row-${Date.now()}-${index}`,
-                  rowColor: '',    // Default color column
-                  contributed: row.contributed || '' // Ensure we have a contributed field
+                  rowColor: row.rowColor || '',
+                  contributed: row.contributed || ''
                 }));
-                setData(dataWithUniqueKeys);
-
-                // Collect columns from meta fields, plus ensure "rowColor" and "contributed"
+                setData(rows);
                 const fields = results.meta.fields || [];
                 const extraCols = ['rowColor', 'contributed'].filter(col => !fields.includes(col));
                 setColumns([...fields, ...extraCols]);
               }
             });
-          }
-          // If it's XLSX
-          else if (file.name.endsWith('.xlsx')) {
+          } else if (file.name.endsWith('.xlsx')) {
             const workbook = XLSXLib.read(content, { type: 'binary' });
             const sheetName = workbook.SheetNames[0];
             const sheet = workbook.Sheets[sheetName];
             const jsonData = XLSXLib.utils.sheet_to_json(sheet);
 
-            const dataWithUniqueKeys = jsonData.map((row, index) => ({
+            const rows = jsonData.map((row, index) => ({
               ...row,
               _uniqueKey: `row-${Date.now()}-${index}`,
               rowColor: row.rowColor || '',
               contributed: row.contributed || ''
             }));
-
-            setData(dataWithUniqueKeys);
+            setData(rows);
 
             const baseColumns = Object.keys(jsonData[0] || []);
             const extraCols = ['rowColor', 'contributed'].filter(col => !baseColumns.includes(col));
@@ -198,7 +189,6 @@
           }
         };
 
-        // For CSV vs XLSX, read differently
         if (file.name.endsWith('.csv')) {
           reader.readAsText(file);
         } else {
@@ -206,10 +196,7 @@
         }
       };
 
-      // Automatic color logic:
-      //  1) If salary < contribution => green
-      //  2) If contribution < salary/2 => red
-      //  3) else => yellow
+      // Automatic color logic
       const computeAutoColor = (row) => {
         const salary = parseFloat(row.salary) || 0;
         const contribution = parseFloat(row.contributed) || 0;
@@ -223,13 +210,12 @@
         }
       };
 
-      // We keep a manual color override too:
+      // Final color = manual override OR the auto color
       const getRowColor = (row) => {
-        // If there's a manually set color for this row, use that;
-        // else use the auto-generated color from the logic above.
         return rowColors[row._uniqueKey] || computeAutoColor(row);
       };
 
+      // Manually override color
       const handleRowColor = (uniqueKey, color) => {
         setRowColors((prev) => ({
           ...prev,
@@ -237,16 +223,36 @@
         }));
       };
 
-      const handleContributedChange = (uniqueKey, value) => {
+      // This is called when we finally "commit" the contributed value (on Enter)
+      const handleContributedChange = (uniqueKey, newValue) => {
         setData((prevData) =>
           prevData.map((row) =>
             row._uniqueKey === uniqueKey
-              ? { ...row, contributed: value }
+              ? { ...row, contributed: newValue }
               : row
           )
         );
       };
 
+      // As user types, store in local state:
+      const handleChangeTempContribution = (uniqueKey, value) => {
+        setEditingContributions((prev) => ({
+          ...prev,
+          [uniqueKey]: value
+        }));
+      };
+
+      // On key down, if user presses Enter, commit that local value to the main data
+      const handleKeyDownContribution = (uniqueKey, e) => {
+        if (e.key === 'Enter') {
+          const newVal = editingContributions[uniqueKey];
+          if (newVal !== undefined) {
+            handleContributedChange(uniqueKey, newVal);
+          }
+        }
+      };
+
+      // Filter logic
       const handleFilter = (column, value) => {
         setFilters((prev) => ({
           ...prev,
@@ -254,13 +260,12 @@
         }));
       };
 
+      // Sort logic for an 'amount' column (you can adjust or remove if not needed)
       const handleAmountSort = () => {
-        // Toggle direction
         setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
         setSortConfig({ key: 'amount', direction: sortDirection });
       };
 
-      // Optional: handle sort on any column, not just "amount"
       const handleSort = (column) => {
         if (sortConfig.key === column) {
           setSortConfig({
@@ -273,62 +278,57 @@
       };
 
       const filteredAndSortedData = useMemo(() => {
-        let processedData = [...data];
+        let processed = [...data];
 
-        // Apply filters
+        // Filter
         Object.keys(filters).forEach((column) => {
           const filterValue = (filters[column] || '').toLowerCase();
           if (filterValue) {
-            processedData = processedData.filter((row) =>
+            processed = processed.filter((row) =>
               String(row[column] || '').toLowerCase().includes(filterValue)
             );
           }
         });
 
-        // Apply sorting if it's the "amount" column
+        // Sort by 'amount' if needed
         if (sortConfig.key === 'amount') {
-          processedData.sort((a, b) => {
+          processed.sort((a, b) => {
             const aValue = parseFloat(a.amount) || 0;
             const bValue = parseFloat(b.amount) || 0;
             return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
           });
         }
-        // Or if you want to apply sorting on the "salary" column, or any other column, you can adapt similarly.
+        return processed;
+      }, [data, filters, sortConfig]);
 
-        return processedData;
-      }, [data, sortConfig, filters]);
-
-      // Helper: convert workbook output to array buffer
-      function s2ab(s) {
+      // Helper to build array buffer
+      const s2ab = (s) => {
         const buf = new ArrayBuffer(s.length);
         const view = new Uint8Array(buf);
         for (let i = 0; i < s.length; i++) {
           view[i] = s.charCodeAt(i) & 0xFF;
         }
         return buf;
-      }
+      };
 
-      // Save the current data to an XLSX, in-browser.
+      // Export the current data to XLSX with styling
       const handleSave = () => {
         if (!filteredAndSortedData.length) return;
 
-        // Build array of rows with color and contributed
+        // Build array of rows for saving
         const dataToSave = filteredAndSortedData.map((row) => {
           const newRow = { ...row };
-          // Keep rowColor & contributed, remove _uniqueKey
           delete newRow._uniqueKey;
           return newRow;
         });
 
         try {
-          // New workbook
           const wb = XLSXLib.utils.book_new();
           const ws = XLSXLib.utils.json_to_sheet(dataToSave);
 
-          // Apply styling, including row highlight colors
+          // Apply style
           filteredAndSortedData.forEach((row, idx) => {
-            const autoOrManualColor = getRowColor(row);
-
+            const colorName = getRowColor(row);
             const colorMap = {
               green: {
                 patternType: 'solid',
@@ -346,9 +346,8 @@
                 bgColor: { rgb: 'FFB6B6' }
               }
             };
-            const style = colorMap[autoOrManualColor];
+            const style = colorMap[colorName];
             if (style) {
-              // For each column, apply the style
               columns.forEach((col, colIndex) => {
                 const cellRef = XLSXLib.utils.encode_cell({ r: idx + 1, c: colIndex });
                 if (!ws[cellRef]) ws[cellRef] = {};
@@ -371,17 +370,10 @@
           }));
           ws['!cols'] = colWidths;
 
-          // Append sheet
           XLSXLib.utils.book_append_sheet(wb, ws, 'Sheet1');
+          const wbout = XLSXLib.write(wb, { bookType: 'xlsx', type: 'binary', cellStyles: true });
 
-          // Write workbook to a binary string
-          const wbout = XLSXLib.write(wb, {
-            bookType: 'xlsx',
-            type: 'binary',
-            cellStyles: true,
-          });
-
-          // Convert to Blob and trigger download
+          // Download
           const blob = new Blob([s2ab(wbout)], { type: 'application/octet-stream' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
@@ -390,9 +382,9 @@
           a.click();
           URL.revokeObjectURL(url);
 
-        } catch (error) {
-          console.error('Error preparing file:', error);
-          alert('Error preparing file. Check console for details.');
+        } catch (err) {
+          console.error('Error preparing file:', err);
+          alert('Error preparing file. See console for details.');
         }
       };
 
@@ -411,21 +403,22 @@
 
           <div className="filters-and-sort">
             <div className="filters">
-              {['action', 'description', 'done_at', 'salary'].map(column => (
-                columns.includes(column) && (
-                  <div key={column}>
-                    <label>{column}: </label>
+              {/* Example filter fields. Add or remove as needed for your data columns */}
+              {['action', 'description', 'done_at', 'salary'].map(col => (
+                columns.includes(col) && (
+                  <div key={col}>
+                    <label>{col}: </label>
                     <input
                       type="text"
-                      onChange={(e) => handleFilter(column, e.target.value)}
-                      placeholder={`Filter ${column}...`}
+                      onChange={(e) => handleFilter(col, e.target.value)}
+                      placeholder={`Filter ${col}...`}
                     />
                   </div>
                 )
               ))}
             </div>
 
-            {/* Sort button example if 'amount' is present */}
+            {/* Sort button if 'amount' column is present */}
             <button
               className="sort-button"
               onClick={handleAmountSort}
@@ -455,7 +448,6 @@
               </thead>
               <tbody>
                 {filteredAndSortedData.map((row) => {
-                  // Evaluate color by the auto logic + manual override
                   const rowHighlight = getRowColor(row);
                   return (
                     <tr
@@ -463,7 +455,7 @@
                       className={`row-${rowHighlight}`}
                     >
                       <td>
-                        {/* Manual overrides - remove if you only want auto-color */}
+                        {/* Manual overrides (remove if you want purely automatic coloring) */}
                         <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
@@ -471,21 +463,22 @@
                       </td>
                       {columns.map((column) => {
                         if (column === 'rowColor') {
-                          // You can hide or display the rowColor column if you want
-                          return (
-                            <td key={column}>
-                              {row.rowColor || ''}
-                            </td>
-                          );
+                          // Show or hide as you prefer
+                          return <td key={column}>{row.rowColor}</td>;
                         }
                         if (column === 'contributed') {
-                          // An editable numeric field for user input
+                          // Input with local buffer, commit on Enter
+                          const tempValue =
+                            editingContributions[row._uniqueKey] !== undefined
+                              ? editingContributions[row._uniqueKey]
+                              : row.contributed || '';
                           return (
                             <td key={column}>
                               <input
                                 type="number"
-                                value={row.contributed || ''}
-                                onChange={(e) => handleContributedChange(row._uniqueKey, e.target.value)}
+                                value={tempValue}
+                                onChange={(e) => handleChangeTempContribution(row._uniqueKey, e.target.value)}
+                                onKeyDown={(e) => handleKeyDownContribution(row._uniqueKey, e)}
                                 style={{
                                   width: '100px',
                                   padding: '4px',
@@ -497,11 +490,7 @@
                             </td>
                           );
                         }
-                        return (
-                          <td key={column}>
-                            {row[column]}
-                          </td>
-                        );
+                        return <td key={column}>{row[column]}</td>;
                       })}
                     </tr>
                   );
