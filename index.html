@@ -171,7 +171,7 @@
       // We require "amount" column. If you need more, adapt checks below
       const REQUIRED_COLUMN = 'amount';
 
-      // Clears current data/columns/overrides
+      // Clears all data and columns
       function resetState() {
         setData([]);
         setColumns([]);
@@ -305,11 +305,14 @@
         }
       }
 
-      // Strips commas, $, etc.
-      const sanitizeNumberString = (val) => {
-        if (!val) return '';
-        return val.replace(/[^\d.-]/g, '');
-      };
+      // Strips commas, $, etc. 
+      // Now ensures "val" is always a string to avoid "val.replace is not a function".
+      function sanitizeNumberString(val) {
+        if (val === null || val === undefined) return '';
+        // Convert to string before .replace
+        const str = String(val);
+        return str.replace(/[^\d.-]/g, '');
+      }
 
       // Automatic color logic
       const computeAutoColor = (row) => {
