@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Spreadsheet Viewer (Web)</title>
+  <title>Fucker Forms</title>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- React / ReactDOM -->
@@ -142,7 +142,7 @@
       const [sortDirection, setSortDirection] = useState('asc');
 
       // This local state "buffers" the user's typed value for the contributed column
-      // so we only commit it to the main 'data' state when Enter is pressed.
+      // so we only commit it to the main 'data' state on Enter.
       const [editingContributions, setEditingContributions] = useState({});
 
       const handleFileUpload = (event) => {
@@ -196,10 +196,21 @@
         }
       };
 
+      // Sanitize a string by removing all non-numeric (and non-decimal) characters
+      // to handle formats like "$34,154" or "34,154.00".
+      const sanitizeNumberString = (val) => {
+        if (!val) return '';
+        return val.toString().replace(/[^\d.-]/g, '');
+      };
+
       // Automatic color logic
       const computeAutoColor = (row) => {
-        const salary = parseFloat(row.salary) || 0;
-        const contribution = parseFloat(row.contributed) || 0;
+        // Make sure we convert salary + contributed to numbers correctly
+        const safeSalaryStr = sanitizeNumberString(row.salary);
+        const salary = parseFloat(safeSalaryStr) || 0;
+
+        const safeContribStr = sanitizeNumberString(row.contributed);
+        const contribution = parseFloat(safeContribStr) || 0;
 
         if (contribution > salary) {
           return 'green';
@@ -223,7 +234,7 @@
         }));
       };
 
-      // This is called when we finally "commit" the contributed value (on Enter)
+      // This is called when we finally "commit" the contributed value (on Enter).
       const handleContributedChange = (uniqueKey, newValue) => {
         setData((prevData) =>
           prevData.map((row) =>
