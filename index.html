@@ -141,8 +141,8 @@
       const [rowColors, setRowColors] = useState({});
       const [sortDirection, setSortDirection] = useState('asc');
 
-      // This local state "buffers" the user's typed value for the contributed column
-      // so we only commit it to the main 'data' state on Enter.
+      // This local state "buffers" the user's typed value for contributed
+      // so we only commit it to the main 'data' state when they press Enter.
       const [editingContributions, setEditingContributions] = useState({});
 
       const handleFileUpload = (event) => {
@@ -164,6 +164,7 @@
                   contributed: row.contributed || ''
                 }));
                 setData(rows);
+                // Gather columns
                 const fields = results.meta.fields || [];
                 const extraCols = ['rowColor', 'contributed'].filter(col => !fields.includes(col));
                 setColumns([...fields, ...extraCols]);
@@ -203,18 +204,18 @@
         return val.toString().replace(/[^\d.-]/g, '');
       };
 
-      // Automatic color logic
+      // Automatic color logic comparing 'amount' vs. 'contributed'.
+      // If your CSV/Excel doesn't have an 'amount' column, rename as needed.
       const computeAutoColor = (row) => {
-        // Make sure we convert salary + contributed to numbers correctly
-        const safeSalaryStr = sanitizeNumberString(row.salary);
-        const salary = parseFloat(safeSalaryStr) || 0;
+        const safeAmountStr = sanitizeNumberString(row.amount);
+        const amount = parseFloat(safeAmountStr) || 0;
 
         const safeContribStr = sanitizeNumberString(row.contributed);
         const contribution = parseFloat(safeContribStr) || 0;
 
-        if (contribution > salary) {
+        if (contribution > amount) {
           return 'green';
-        } else if (contribution < salary / 2) {
+        } else if (contribution < amount / 2) {
           return 'red';
         } else {
           return 'yellow';
@@ -234,7 +235,7 @@
         }));
       };
 
-      // This is called when we finally "commit" the contributed value (on Enter).
+      // Commit the contributed value after pressing Enter.
       const handleContributedChange = (uniqueKey, newValue) => {
         setData((prevData) =>
           prevData.map((row) =>
@@ -271,7 +272,7 @@
         }));
       };
 
-      // Sort logic for an 'amount' column (you can adjust or remove if not needed)
+      // Sort logic for an 'amount' column
       const handleAmountSort = () => {
         setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
         setSortConfig({ key: 'amount', direction: sortDirection });
@@ -301,12 +302,12 @@
           }
         });
 
-        // Sort by 'amount' if needed
+        // If we sort by 'amount':
         if (sortConfig.key === 'amount') {
           processed.sort((a, b) => {
-            const aValue = parseFloat(a.amount) || 0;
-            const bValue = parseFloat(b.amount) || 0;
-            return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
+            const aVal = parseFloat(sanitizeNumberString(a.amount)) || 0;
+            const bVal = parseFloat(sanitizeNumberString(b.amount)) || 0;
+            return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
           });
         }
         return processed;
@@ -322,7 +323,7 @@
         return buf;
       };
 
-      // Export the current data to XLSX with styling
+      // Export current data to XLSX with styling
       const handleSave = () => {
         if (!filteredAndSortedData.length) return;
 
@@ -414,8 +415,8 @@
 
           <div className="filters-and-sort">
             <div className="filters">
-              {/* Example filter fields. Add or remove as needed for your data columns */}
-              {['action', 'description', 'done_at', 'salary'].map(col => (
+              {/* Example: filter by some columns. Adjust as needed. */}
+              {['action', 'description', 'done_at', 'amount'].map(col => (
                 columns.includes(col) && (
                   <div key={col}>
                     <label>{col}: </label>
