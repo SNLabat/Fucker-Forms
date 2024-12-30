@@ -168,7 +168,8 @@
       // We'll store any error here and display it in the UI
       const [errorMessage, setErrorMessage] = useState('');
 
-      // We require "amount" column. If you need more, adapt checks below
+      // We want to accept any case for "amount"
+      // But eventually store data under row.amount in the code
       const REQUIRED_COLUMN = 'amount';
 
       // Clears all data and columns
@@ -180,8 +181,9 @@
         setSortConfig({ key: null, direction: 'asc' });
       }
 
-      // True if we have the 'amount' column and at least 1 row
-      const hasValidData = columns.includes(REQUIRED_COLUMN) && data.length > 0;
+      // True if we have the 'amount' column (any case) & at least 1 row
+      // We do a check in the parse logic, so here we just see if 'amount' is in columns
+      const hasValidData = columns.includes('amount') && data.length > 0;
 
       // Safely set an error message
       function showError(message) {
@@ -221,7 +223,6 @@
             }
           };
 
-          // Read file
           if (file.name.endsWith('.csv')) {
             reader.readAsText(file);
           } else {
@@ -232,36 +233,58 @@
         }
       };
 
+      // Convert any case of AMOUNT/Amount to "amount" in row
+      function unifyAmountCase(row) {
+        // Find the actual key that has 'amount' ignoring case
+        const key = Object.keys(row).find(k => k.toLowerCase() === 'amount');
+        if (key && key !== 'amount') {
+          // Move the data from row[key] => row.amount
+          row.amount = row[key];
+          // Optionally remove the old property
+          delete row[key];
+        }
+        return row;
+      }
+
+      // Similarly for columns
+      function unifyAmountCaseInColumns(colList) {
+        // if we find 'Amount', 'AMOUNT', etc., rename it to 'amount'
+        return colList.map(col => {
+          return (col.toLowerCase() === 'amount') ? 'amount' : col;
+        });
+      }
+
       // Parse CSV content
       function parseCSV(content) {
         PapaLib.parse(content, {
           header: true,
           complete: (results) => {
             const parsedData = results.data;
-            const fields = results.meta.fields || [];
+            let fields = results.meta.fields || [];
 
             if (!parsedData || parsedData.length === 0) {
               showError("Error: CSV is empty. Please check your file.");
               return;
             }
-            if (!fields.includes(REQUIRED_COLUMN)) {
-              showError(`Error: Required column "${REQUIRED_COLUMN}" is missing in CSV. Please check your data.`);
+
+            // 1) unify the column name "amount"
+            fields = unifyAmountCaseInColumns(fields);
+
+            // 2) check if 'amount' is present (the unified version)
+            if (!fields.includes('amount')) {
+              showError('Error: Required column "amount" (any case) is missing in CSV.');
               return;
             }
 
-            // Ensure we have difference in the columns
-            const desiredCols = [...fields];
-            if (!desiredCols.includes('difference')) {
-              desiredCols.push('difference');
-            }
-            if (!desiredCols.includes('contributed')) {
-              desiredCols.push('contributed');
-            }
-            if (!desiredCols.includes('rowColor')) {
-              desiredCols.push('rowColor');
-            }
+            // Ensure we have difference, contributed, rowColor
+            if (!fields.includes('difference')) fields.push('difference');
+            if (!fields.includes('contributed')) fields.push('contributed');
+            if (!fields.includes('rowColor')) fields.push('rowColor');
 
-            const rows = parsedData.map((row, index) => {
+            // 3) unify row's "amount" property, compute difference
+            const rows = parsedData.map((rawRow, index) => {
+              const row = unifyAmountCase({ ...rawRow });
+              // sanitize + compute difference
               const amountNum = parseFloat(sanitizeNumberString(row.amount)) || 0;
               const contribNum = parseFloat(sanitizeNumberString(row.contributed)) || 0;
               const diff = contribNum - amountNum;
@@ -271,12 +294,12 @@
                 _uniqueKey: `row-${Date.now()}-${index}`,
                 contributed: row.contributed || '',
                 rowColor: row.rowColor || '',
-                difference: diff.toString() // store as string for consistency
+                difference: diff.toString()
               };
             });
 
             setData(rows);
-            setColumns(desiredCols);
+            setColumns(fields);
           },
           error: (err) => {
             showError(`PapaParse error: ${err.message}`);
@@ -302,25 +325,24 @@
             return;
           }
 
-          const baseCols = Object.keys(jsonData[0]);
-          if (!baseCols.includes(REQUIRED_COLUMN)) {
-            showError(`Error: Required column "${REQUIRED_COLUMN}" is missing in the Excel. Please check your data.`);
+          // We unify columns by scanning first row
+          let baseCols = Object.keys(jsonData[0]);
+          baseCols = unifyAmountCaseInColumns(baseCols);
+
+          // Check if we have 'amount' after unifying
+          if (!baseCols.includes('amount')) {
+            showError('Error: Required column "amount" (any case) is missing in the Excel.');
             return;
           }
 
-          // Ensure we have difference, contributed, rowColor
-          const desiredCols = [...baseCols];
-          if (!desiredCols.includes('difference')) {
-            desiredCols.push('difference');
-          }
-          if (!desiredCols.includes('contributed')) {
-            desiredCols.push('contributed');
-          }
-          if (!desiredCols.includes('rowColor')) {
-            desiredCols.push('rowColor');
-          }
+          // Ensure difference, contributed, rowColor
+          if (!baseCols.includes('difference')) baseCols.push('difference');
+          if (!baseCols.includes('contributed')) baseCols.push('contributed');
+          if (!baseCols.includes('rowColor')) baseCols.push('rowColor');
 
-          const rows = jsonData.map((row, index) => {
+          // unify row's "amount" property
+          const rows = jsonData.map((rawRow, index) => {
+            const row = unifyAmountCase({ ...rawRow });
             const amountNum = parseFloat(sanitizeNumberString(row.amount)) || 0;
             const contribNum = parseFloat(sanitizeNumberString(row.contributed)) || 0;
             const diff = contribNum - amountNum;
@@ -335,7 +357,7 @@
           });
 
           setData(rows);
-          setColumns(desiredCols);
+          setColumns(baseCols);
         } catch (err) {
           showError(`Error reading XLSX: ${err.message}`);
         }
@@ -353,7 +375,7 @@
       // Automatic color logic
       const computeAutoColor = (row) => {
         try {
-          if (!hasValidData) return ''; 
+          if (!hasValidData) return '';
           const amtStr = sanitizeNumberString(row.amount || '');
           const contrStr = sanitizeNumberString(row.contributed || '');
           if (!amtStr || !contrStr) return '';
@@ -695,7 +717,7 @@
           <div className="instructions">
             <h2>Instructions:</h2>
             <ol>
-              <li>Upload the CSV exported from the PD account.</li>
+              <li>Upload the CSV or XLSX exported from the PD account.  The “amount” column can be in any case (e.g. "AMOUNT", "Amount", "amount").</li>
               <li>You can filter by action, description, or amount. You will more than likely want to filter by "salary" in descriptions.</li>
               <li>Once filtered, you can hit "Sort Amount" to sort the sheet by highest to lowest or lowest to highest.</li>
               <li>You can either manually mark a row or input the amount "contributed" and it will auto-calculate the color based on the amount.</li>
