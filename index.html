@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Spreadsheet Viewer (Web)</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- React / ReactDOM -->
+  <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+  <!-- Babel for in-browser transpiling (not recommended for production, but okay for quick demos) -->
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <!-- PapaParse for CSV -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <!-- xlsx library -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+  <style>
+    body {
+      background-color: #1a1a1a;
+      color: #ffffff;
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+    .container {
+      background-color: #2d2d2d;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    .table-container {
+      max-height: 600px;
+      overflow-y: auto;
+      margin-top: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: #2d2d2d;
+    }
+    th {
+      background-color: #404040;
+      padding: 12px;
+      text-align: left;
+      cursor: pointer;
+    }
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #404040;
+    }
+    .row-green {
+      background-color: rgba(144, 238, 144, 0.2);
+    }
+    .row-yellow {
+      background-color: rgba(255, 255, 224, 0.2);
+    }
+    .row-red {
+      background-color: rgba(255, 182, 182, 0.2);
+    }
+    input[type="file"] {
+      background-color: #404040;
+      padding: 10px;
+      border-radius: 4px;
+      border: none;
+      color: white;
+      margin-bottom: 20px;
+    }
+    input[type="text"] {
+      background-color: #404040;
+      border: 1px solid #555;
+      color: white;
+      padding: 8px;
+      border-radius: 4px;
+      margin: 5px;
+    }
+    button {
+      background-color: #404040;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      margin: 0 4px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .header-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .save-button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .save-button:hover {
+      background-color: #45a049;
+    }
+    .save-button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    .filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    input[type="number"] {
+      background-color: #404040;
+      border: 1px solid #555;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    input[type="number"]:focus {
+      outline: none;
+      border-color: #666;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Your React code -->
+  <script type="text/babel">
+
+    const { useState, useMemo } = React;
+
+    // We'll grab XLSX from the global scope (from the <script src="xlsx.full.min.js"> above).
+    // Same for Papa (PapaParse).
+    const XLSXLib = window.XLSX;
+    const PapaLib = window.Papa;
+
+    function App() {
+      const [data, setData] = useState([]);
+      const [columns, setColumns] = useState([]);
+      const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+      const [filters, setFilters] = useState({});
+      const [rowColors, setRowColors] = useState({});
+      const [sortDirection, setSortDirection] = useState('asc');
+
+      // We store the data with unique keys for each row.
+      // This is helpful for coloring & "contributed" columns.
+      const [dataWithKeys, setDataWithKeys] = useState([]);
+
+      const handleFileUpload = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+          const content = e.target.result;
+          // If it's CSV
+          if (file.name.endsWith('.csv')) {
+            PapaLib.parse(content, {
+              header: true,
+              complete: (results) => {
+                const dataWithUniqueKeys = results.data.map((row, index) => ({
+                  ...row,
+                  _uniqueKey: `row-${Date.now()}-${index}`,
+                  rowColor: '',    // Add default color column
+                  contributed: ''  // Add default contributed column
+                }));
+                setData(dataWithUniqueKeys);
+                setDataWithKeys(dataWithUniqueKeys);
+                // Create columns from meta fields + rowColor + contributed
+                setColumns([...results.meta.fields, 'rowColor', 'contributed']);
+              }
+            });
+          }
+          // If it's XLSX
+          else if (file.name.endsWith('.xlsx')) {
+            const workbook = XLSXLib.read(content, { type: 'binary' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const jsonData = XLSXLib.utils.sheet_to_json(sheet);
+
+            const dataWithUniqueKeys = jsonData.map((row, index) => ({
+              ...row,
+              _uniqueKey: `row-${Date.now()}-${index}`,
+              rowColor: '',
+              contributed: ''
+            }));
+
+            setData(dataWithUniqueKeys);
+            setDataWithKeys(dataWithUniqueKeys);
+
+            const baseColumns = Object.keys(jsonData[0] || {});
+            setColumns([...baseColumns, 'rowColor', 'contributed'].filter(key => key !== '_uniqueKey'));
+          }
+        };
+
+        // For CSV vs XLSX, read differently
+        if (file.name.endsWith('.csv')) {
+          reader.readAsText(file);
+        } else {
+          reader.readAsBinaryString(file);
+        }
+      };
+
+      const handleAmountSort = () => {
+        // Toggle direction
+        setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+        setSortConfig({ key: 'amount', direction: sortDirection });
+      };
+
+      // Generic column-based filter
+      const handleFilter = (column, value) => {
+        setFilters((prev) => ({
+          ...prev,
+          [column]: value
+        }));
+      };
+
+      const handleRowColor = (uniqueKey, color) => {
+        setRowColors((prev) => ({
+          ...prev,
+          [uniqueKey]: color
+        }));
+
+        // Also update the rowColor in the data array itself
+        setData((prevData) =>
+          prevData.map((row) =>
+            row._uniqueKey === uniqueKey ? { ...row, rowColor: color } : row
+          )
+        );
+      };
+
+      const handleContributedChange = (uniqueKey, value) => {
+        setData((prevData) =>
+          prevData.map((row) =>
+            row._uniqueKey === uniqueKey
+              ? { ...row, contributed: value }
+              : row
+          )
+        );
+      };
+
+      const filteredAndSortedData = useMemo(() => {
+        let processedData = [...data];
+
+        // Apply filters
+        Object.keys(filters).forEach((column) => {
+          const filterValue = filters[column].toLowerCase();
+          if (filterValue) {
+            processedData = processedData.filter((row) =>
+              String(row[column] || '').toLowerCase().includes(filterValue)
+            );
+          }
+        });
+
+        // Apply sorting if it's the "amount" column
+        if (sortConfig.key === 'amount') {
+          processedData.sort((a, b) => {
+            const aValue = parseFloat(a.amount) || 0;
+            const bValue = parseFloat(b.amount) || 0;
+            return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
+          });
+        }
+
+        return processedData;
+      }, [data, sortConfig, filters]);
+
+      // Helper: convert workbook output to array buffer
+      function s2ab(s) {
+        const buf = new ArrayBuffer(s.length);
+        const view = new Uint8Array(buf);
+        for (let i = 0; i < s.length; i++) {
+          view[i] = s.charCodeAt(i) & 0xFF;
+        }
+        return buf;
+      }
+
+      // Replaces Electron's "ipcRenderer.invoke('save-file')" approach
+      // with an in-browser file download.
+      const handleSave = () => {
+        if (!filteredAndSortedData.length) return;
+
+        // Build array of rows with color and contributed
+        const dataToSave = filteredAndSortedData.map((row) => {
+          const newRow = { ...row };
+          // Keep rowColor & contributed, remove _uniqueKey
+          delete newRow._uniqueKey;
+          return newRow;
+        });
+
+        try {
+          // New workbook
+          const wb = XLSXLib.utils.book_new();
+          const ws = XLSXLib.utils.json_to_sheet(dataToSave);
+
+          // Color styling (in a real web environment, cell style support can be partial)
+          // We'll attempt to apply color, but note that not all XLSX parsers will interpret it fully.
+          filteredAndSortedData.forEach((row, idx) => {
+            if (rowColors[row._uniqueKey]) {
+              const colorMap = {
+                green: {
+                  patternType: 'solid',
+                  fgColor: { rgb: '90EE90' },
+                  bgColor: { rgb: '90EE90' }
+                },
+                yellow: {
+                  patternType: 'solid',
+                  fgColor: { rgb: 'FFFFE0' },
+                  bgColor: { rgb: 'FFFFE0' }
+                },
+                red: {
+                  patternType: 'solid',
+                  fgColor: { rgb: 'FFB6B6' },
+                  bgColor: { rgb: 'FFB6B6' }
+                }
+              };
+              const style = colorMap[rowColors[row._uniqueKey]];
+              if (style) {
+                columns.forEach((col) => {
+                  const colIndex = columns.indexOf(col);
+                  // row in sheet: idx+1 because row 0 is the header
+                  const cellRef = XLSXLib.utils.encode_cell({ r: idx + 1, c: colIndex });
+                  if (!ws[cellRef]) ws[cellRef] = {};
+                  ws[cellRef].s = {
+                    fill: style,
+                    border: {
+                      top: { style: 'thin', color: { auto: 1 } },
+                      bottom: { style: 'thin', color: { auto: 1 } },
+                      left: { style: 'thin', color: { auto: 1 } },
+                      right: { style: 'thin', color: { auto: 1 } }
+                    }
+                  };
+                });
+              }
+            }
+          });
+
+          // Column widths
+          const colWidths = columns.map((col) => ({
+            wch: col === 'contributed' ? 15 : Math.max(col.length, 10)
+          }));
+          ws['!cols'] = colWidths;
+
+          // Append sheet to workbook
+          XLSXLib.utils.book_append_sheet(wb, ws, 'Sheet1');
+
+          // Write workbook to a binary string
+          const wbout = XLSXLib.write(wb, {
+            bookType: 'xlsx',
+            type: 'binary',
+            cellStyles: true,
+          });
+
+          // Convert to blob and trigger download
+          const blob = new Blob([s2ab(wbout)], { type: 'application/octet-stream' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'exported_data.xlsx';
+          a.click();
+          URL.revokeObjectURL(url);
+
+        } catch (error) {
+          console.error('Error preparing file:', error);
+          alert('Error preparing file. Check console for details.');
+        }
+      };
+
+      // Optional: handle sort on any column, not just "amount"
+      const handleSort = (column) => {
+        // If you want to sort by other columns, do it here
+        // Example: toggle ascending/descending
+        if (sortConfig.key === column) {
+          setSortConfig({
+            key: column,
+            direction: sortConfig.direction === 'asc' ? 'desc' : 'asc'
+          });
+        } else {
+          setSortConfig({ key: column, direction: 'asc' });
+        }
+      };
+
+      return (
+        <div className="container">
+          <div className="header-controls">
+            <input type="file" accept=".csv,.xlsx" onChange={handleFileUpload} />
+            <button
+              className="save-button"
+              onClick={handleSave}
+              disabled={data.length === 0}
+            >
+              Save Current View
+            </button>
+          </div>
+
+          <div className="filters-and-sort">
+            <div className="filters">
+              {['action', 'description', 'done_at'].map(column => (
+                columns.includes(column) && (
+                  <div key={column}>
+                    <label>{column}: </label>
+                    <input
+                      type="text"
+                      onChange={(e) => handleFilter(column, e.target.value)}
+                      placeholder={`Filter ${column}...`}
+                    />
+                  </div>
+                )
+              ))}
+            </div>
+
+            <button
+              className="sort-button"
+              onClick={handleAmountSort}
+              disabled={!columns.includes('amount')}
+            >
+              Sort Amount {sortDirection === 'asc' ? '↑' : '↓'}
+            </button>
+          </div>
+
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Row Actions</th>
+                  {columns.map((column) => (
+                    <th
+                      key={column}
+                      onClick={() => handleSort(column)}
+                    >
+                      {column}
+                      {sortConfig.key === column && (
+                        sortConfig.direction === 'asc' ? ' ↑' : ' ↓'
+                      )}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredAndSortedData.map((row) => (
+                  <tr
+                    key={row._uniqueKey}
+                    className={`row-${rowColors[row._uniqueKey] || ''}`}
+                  >
+                    <td>
+                      <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
+                      <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
+                      <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
+                      <button onClick={() => handleRowColor(row._uniqueKey, '')}>Clear</button>
+                    </td>
+                    {columns.map((column) => {
+                      if (column === 'rowColor') {
+                        return (
+                          <td key={column}>
+                            {row.rowColor || ''}
+                          </td>
+                        );
+                      }
+                      if (column === 'contributed') {
+                        return (
+                          <td key={column}>
+                            <input
+                              type="number"
+                              value={row.contributed || ''}
+                              onChange={(e) => handleContributedChange(row._uniqueKey, e.target.value)}
+                              style={{
+                                width: '100px',
+                                padding: '4px',
+                                backgroundColor: '#404040',
+                                border: '1px solid #555',
+                                color: 'white'
+                              }}
+                            />
+                          </td>
+                        );
+                      }
+                      return (
+                        <td key={column}>
+                          {row[column]}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
