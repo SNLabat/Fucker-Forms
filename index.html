@@ -629,27 +629,19 @@
             </table>
           </div>
 
+     {/* Instructions Section */}
           <div className="instructions">
             <h2>Instructions:</h2>
             <ol>
-              <li>
-                If you upload a CSV with headers like “Amount” / “AMOUNT”, 
-                they are automatically converted to lowercase <code>amount</code> by 
-                <strong> transformHeader</strong>.
-              </li>
-              <li>
-                We also unify them for sorting, filtering, etc.
-              </li>
-              <li>
-                XLSX files are still handled differently, where we manually convert 
-                the header row to lowercase in code.
-              </li>
-              <li>
-                Type your "contributed" amounts to auto-calc the difference and color. 
-                Click <strong>Save Current View</strong> to export to XLSX.
-              </li>
+              <li>Upload the CSV exported from the PD account.</li>
+              <li>You can filter by action, description, or amount. You will more than likely want to filter by "salary" in descriptions.</li>
+              <li>Once filtered, you can hit "Sort Amount" to sort the sheet by highest to lowest or lowest to highest.</li>
+              <li>You can either manually mark a row or input the amount "contributed" and it will auto-calculate the color based on the amount.</li>
+              <li>A “difference” column shows <code>(contributed - amount)</code>. It updates automatically when you type in a new contributed value.</li>
+              <li>Once finished, click "Save Current View" and it will export your work to an XLSX (Excel) spreadsheet to work with or share elsewhere.</li>
             </ol>
           </div>
+
 
           {errorMessage && (
             <div className="error-box">
