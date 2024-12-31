@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Fucker Forms</title>
+  <title>Fucker Forms (Clear instead of Auto)</title>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <!-- React / ReactDOM -->
@@ -48,6 +48,7 @@
       padding: 12px;
       border-bottom: 1px solid #404040;
     }
+    /* Color-coded row classes */
     .row-green {
       background-color: rgba(144, 238, 144, 0.2);
     }
@@ -163,7 +164,7 @@
       const [sortDirection, setSortDirection] = useState('asc');
       const [errorMessage, setErrorMessage] = useState('');
 
-      // Suppose we require a column named "amount" (in lowercase after transformHeader)
+      // We require a column named "amount"
       const REQUIRED_COLUMN = 'amount';
 
       function resetState() {
@@ -209,11 +210,10 @@
         }
       }
 
-      // 1) CSV Parsing with case-insensitive headers
+      // CSV parse with case-insensitive headers
       function parseCSVCaseInsensitive(file) {
         PapaLib.parse(file, {
           header: true,
-          // transformHeader ensures each column name is lowercased and trimmed
           transformHeader: (header) => header.toLowerCase().trim(),
           complete: (results) => {
             const parsedData = results.data;
@@ -224,19 +224,16 @@
               return;
             }
 
-            // Check if we have 'amount'
             if (!fields.includes(REQUIRED_COLUMN)) {
               showError(`Error: Required column "${REQUIRED_COLUMN}" is missing in CSV (case-insensitive).`);
               return;
             }
 
-            // Ensure difference, contributed, rowColor
             let newCols = [...fields];
             if (!newCols.includes('difference')) newCols.push('difference');
             if (!newCols.includes('contributed')) newCols.push('contributed');
             if (!newCols.includes('rowColor')) newCols.push('rowColor');
 
-            // Construct final rows
             const rows = parsedData.map((row, index) => {
               const amt = parseFloat(sanitizeNumberString(row.amount)) || 0;
               const contrib = parseFloat(sanitizeNumberString(row.contributed)) || 0;
@@ -260,7 +257,7 @@
         });
       }
 
-      // 2) XLSX Parsing (no transformHeader approach built-in, so we handle it differently)
+      // XLSX parse
       function parseXLSX(file) {
         const reader = new FileReader();
         reader.onload = (evt) => {
@@ -275,40 +272,32 @@
             const sheetName = workbook.SheetNames[0];
             const sheet = workbook.Sheets[sheetName];
             const jsonData = XLSXLib.utils.sheet_to_json(sheet, { header: 1 });
-            // 'header: 1' => array of arrays (raw lines). We'll lower-case the first row manually.
-
             if (!jsonData || jsonData.length === 0) {
               showError('Error: Excel sheet is empty.');
               return;
             }
 
-            // The first row is the headers. We transform them to lowercase
             let headers = jsonData[0].map(h => String(h || '').toLowerCase().trim());
-            const rowsArr = jsonData.slice(1); // the rest are data
+            const rowsArr = jsonData.slice(1);
 
             if (!headers.includes(REQUIRED_COLUMN)) {
               showError(`Error: Required column "${REQUIRED_COLUMN}" missing in XLSX (case-insensitive).`);
               return;
             }
 
-            // We'll unify the rest of the columns: difference, contributed, rowColor if missing
             if (!headers.includes('difference')) headers.push('difference');
             if (!headers.includes('contributed')) headers.push('contributed');
             if (!headers.includes('rowColor')) headers.push('rowColor');
 
-            // Now build final row objects from rowsArr
             const rowObjects = rowsArr.map((rawRow, rowIndex) => {
               const rowObj = {};
-              // for each col in headers (except any that go beyond rawRow length)
               headers.forEach((colName, colIndex) => {
                 if (colIndex < rawRow.length) {
                   rowObj[colName] = rawRow[colIndex];
                 } else {
-                  // Some columns might be missing data
                   rowObj[colName] = '';
                 }
               });
-              // Compute difference
               const amt = parseFloat(sanitizeNumberString(rowObj.amount)) || 0;
               const contrib = parseFloat(sanitizeNumberString(rowObj.contributed)) || 0;
               const diff = contrib - amt;
@@ -317,7 +306,6 @@
               rowObj._uniqueKey = `row-${Date.now()}-${rowIndex}`;
               rowObj.contributed = rowObj.contributed || '';
               rowObj.rowColor = rowObj.rowColor || '';
-
               return rowObj;
             });
 
@@ -367,7 +355,6 @@
                 contributed: newVal,
                 difference: diff.toString()
               };
-              // If there's a manual override, keep that; else auto
               const manual = rowColors[uniqueKey];
               updated.rowColor = manual || computeAutoColor(updated);
               return updated;
@@ -379,6 +366,12 @@
         }
       }
 
+      /**
+       * handleRowColor:
+       * - If color === 'clear', we remove the manual override AND
+       *   set rowColor to '' (no color).
+       * - Else if color is e.g. 'green', 'yellow', 'red', we apply that override.
+       */
       function handleRowColor(uniqueKey, color) {
         if (!hasValidData) {
           showError('No valid data loaded.');
@@ -388,11 +381,13 @@
           setRowColors(prev => ({ ...prev, [uniqueKey]: color }));
           setData(prev => prev.map(row => {
             if (row._uniqueKey === uniqueKey) {
-              if (!color) {
-                const auto = computeAutoColor(row);
-                return { ...row, rowColor: auto };
+              if (color === 'clear') {
+                // This means "Clear" the color (set rowColor to empty)
+                return { ...row, rowColor: '' };
+              } else {
+                // Manually override with the chosen color
+                return { ...row, rowColor: color };
               }
-              return { ...row, rowColor: color };
             }
             return row;
           }));
@@ -477,6 +472,7 @@
           });
           const wb = XLSXLib.utils.book_new();
           const ws = XLSXLib.utils.json_to_sheet(dataToSave);
+
           filteredAndSortedData.forEach((row, idx) => {
             const colorName = row.rowColor || '';
             if (!colorName) return;
@@ -593,10 +589,12 @@
                   return (
                     <tr key={row._uniqueKey} className={highlightClass}>
                       <td>
+                        {/* Manual color overrides */}
                         <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
-                        <button onClick={() => handleRowColor(row._uniqueKey, '')}>Auto</button>
+                        {/* Swap Auto => Clear, which sets rowColor to '' */}
+                        <button onClick={() => handleRowColor(row._uniqueKey, 'clear')}>Clear</button>
                       </td>
                       {columns.map(col => {
                         if (col === 'rowColor') {
@@ -629,19 +627,16 @@
             </table>
           </div>
 
-     {/* Instructions Section */}
           <div className="instructions">
             <h2>Instructions:</h2>
             <ol>
-              <li>Upload the CSV exported from the PD account.</li>
-              <li>You can filter by action, description, or amount. You will more than likely want to filter by "salary" in descriptions.</li>
-              <li>Once filtered, you can hit "Sort Amount" to sort the sheet by highest to lowest or lowest to highest.</li>
-              <li>You can either manually mark a row or input the amount "contributed" and it will auto-calculate the color based on the amount.</li>
-              <li>A “difference” column shows <code>(contributed - amount)</code>. It updates automatically when you type in a new contributed value.</li>
-              <li>Once finished, click "Save Current View" and it will export your work to an XLSX (Excel) spreadsheet to work with or share elsewhere.</li>
+              <li>Upload the CSV or XLSX with an 'amount' column (case-insensitive for CSV!).</li>
+              <li>You can filter by 'amount', 'description', etc. and click "Sort Amount".</li>
+              <li>Manually color a row as Green/Yellow/Red, or click “Clear” to remove the override.</li>
+              <li>Enter "contributed" amounts to auto-calc the difference and color if there's no manual override.</li>
+              <li>Click <strong>Save Current View</strong> to export the data (with color coding) to an XLSX file.</li>
             </ol>
           </div>
-
 
           {errorMessage && (
             <div className="error-box">
