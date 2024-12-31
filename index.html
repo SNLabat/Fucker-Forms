@@ -232,7 +232,45 @@
         }
       };
 
-      // Parse CSV content
+      // -----------------------------------------
+      // HELPER FUNCTIONS from your snippet
+      // -----------------------------------------
+      // Normalizes a column name (lowercase, trimmed)
+      function normalizeColumnName(columnName) {
+        return columnName.toLowerCase().trim();
+      }
+
+      // Finds the actual column name that matches the normalized target
+      function findActualColumnName(fields, normalizedTarget) {
+        return fields.find(field => normalizeColumnName(field) === normalizedTarget);
+      }
+
+      // Normalizes the data structure so that all columns use the original field name
+      // (Case-insensitive match, but we keep the original casing in the final object.)
+      function normalizeData(dataRows, originalFields) {
+        const normalizedToOriginal = {};
+
+        // Build a mapping from "normalized" => "original"
+        originalFields.forEach(field => {
+          const norm = normalizeColumnName(field);
+          normalizedToOriginal[norm] = field;
+        });
+
+        // Transform each row: if a key's normalized name is found, rename
+        return dataRows.map(row => {
+          const normalizedRow = {};
+          Object.entries(row).forEach(([key, value]) => {
+            const normalizedKey = normalizeColumnName(key);
+            // If we find a match in our mapping, we use that original key
+            const finalKey = normalizedToOriginal[normalizedKey] || key;
+            normalizedRow[finalKey] = value;
+          });
+          return normalizedRow;
+        });
+      }
+      // ------------------------------------------
+
+      // Updated parseCSV that uses your snippet's logic
       function parseCSV(content) {
         PapaLib.parse(content, {
           header: true,
@@ -244,25 +282,33 @@
               showError("Error: CSV is empty. Please check your file.");
               return;
             }
-            if (!fields.includes(REQUIRED_COLUMN)) {
-              showError(`Error: Required column "${REQUIRED_COLUMN}" is missing in CSV. Please check your data.`);
+
+            // Check for required columns case-insensitively
+            const hasAmount = fields.some(field =>
+              normalizeColumnName(field) === 'amount'
+            );
+            if (!hasAmount) {
+              showError(
+                `Error: Required column "amount" is missing in CSV (case-insensitive). Please check your data.`
+              );
               return;
             }
 
-            // Ensure we have difference in the columns
-            const desiredCols = [...fields];
-            if (!desiredCols.includes('difference')) {
-              desiredCols.push('difference');
-            }
-            if (!desiredCols.includes('contributed')) {
-              desiredCols.push('contributed');
-            }
-            if (!desiredCols.includes('rowColor')) {
-              desiredCols.push('rowColor');
-            }
+            // Find the actual column name for "amount"
+            const amountColumn = findActualColumnName(fields, 'amount');
 
-            const rows = parsedData.map((row, index) => {
-              const amountNum = parseFloat(sanitizeNumberString(row.amount)) || 0;
+            // Normalize the data structure
+            const normalizedData = normalizeData(parsedData, fields);
+
+            // Build a desiredCols array from the original fields
+            const desiredCols = [...fields];
+            if (!desiredCols.includes('difference')) desiredCols.push('difference');
+            if (!desiredCols.includes('contributed')) desiredCols.push('contributed');
+            if (!desiredCols.includes('rowColor')) desiredCols.push('rowColor');
+
+            // Now create final rows
+            const rows = normalizedData.map((row, index) => {
+              const amountNum = parseFloat(sanitizeNumberString(row[amountColumn])) || 0;
               const contribNum = parseFloat(sanitizeNumberString(row.contributed)) || 0;
               const diff = contribNum - amountNum;
 
@@ -342,10 +388,8 @@
       }
 
       // Strips commas, $, etc.
-      // Now ensures "val" is always a string to avoid "val.replace is not a function".
       function sanitizeNumberString(val) {
         if (val === null || val === undefined) return '';
-        // Convert to string before .replace
         const str = String(val);
         return str.replace(/[^\d.-]/g, '');
       }
@@ -353,7 +397,7 @@
       // Automatic color logic
       const computeAutoColor = (row) => {
         try {
-          if (!hasValidData) return ''; 
+          if (!hasValidData) return '';
           const amtStr = sanitizeNumberString(row.amount || '');
           const contrStr = sanitizeNumberString(row.contributed || '');
           if (!amtStr || !contrStr) return '';
@@ -370,7 +414,6 @@
       };
 
       // This updates the row's contributed value and color
-      // Also re-calculates difference = contributed - amount
       const handleContributedChange = (uniqueKey, newValue) => {
         if (!hasValidData) {
           showError('No valid data loaded. Please upload a valid sheet with "amount" column.');
@@ -380,7 +423,6 @@
           setData(prevData =>
             prevData.map(row => {
               if (row._uniqueKey === uniqueKey) {
-                // Recompute difference
                 const amountNum = parseFloat(sanitizeNumberString(row.amount)) || 0;
                 const contribNum = parseFloat(sanitizeNumberString(newValue)) || 0;
                 const diff = contribNum - amountNum;
@@ -719,6 +761,3 @@
   </script>
 </body>
 </html>
-
-
-
