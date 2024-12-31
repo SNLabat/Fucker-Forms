@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Fucker Forms</title>
+  <title>Fucker Forms (2MB Limit)</title>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <!-- React / ReactDOM -->
@@ -155,6 +155,9 @@
     const XLSXLib = window.XLSX;
     const PapaLib = window.Papa;
 
+    // We define a 2 MB limit (in bytes)
+    const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
+
     function App() {
       const [data, setData] = useState([]);
       const [columns, setColumns] = useState([]);
@@ -164,7 +167,6 @@
       const [sortDirection, setSortDirection] = useState('asc');
       const [errorMessage, setErrorMessage] = useState('');
 
-      // We require a column named "amount"
       const REQUIRED_COLUMN = 'amount';
 
       function resetState() {
@@ -182,7 +184,6 @@
       function showError(msg) {
         setErrorMessage(msg);
       }
-
       function clearError() {
         setErrorMessage('');
       }
@@ -194,13 +195,21 @@
           return;
         }
 
+        // 1) Check file size before parsing
+        if (file.size > MAX_FILE_SIZE) {
+          showError(`File too large! The maximum allowed file size is 2 MB.`);
+          return; // do not parse further
+        }
+
+        // If under 2 MB, proceed
         resetState();
         clearError();
 
         try {
-          if (file.name.toLowerCase().endsWith('.csv')) {
+          const lowerName = file.name.toLowerCase();
+          if (lowerName.endsWith('.csv')) {
             parseCSVCaseInsensitive(file);
-          } else if (file.name.toLowerCase().endsWith('.xlsx')) {
+          } else if (lowerName.endsWith('.xlsx')) {
             parseXLSX(file);
           } else {
             showError('Unsupported file type. Please upload a .csv or .xlsx file.');
@@ -292,11 +301,7 @@
             const rowObjects = rowsArr.map((rawRow, rowIndex) => {
               const rowObj = {};
               headers.forEach((colName, colIndex) => {
-                if (colIndex < rawRow.length) {
-                  rowObj[colName] = rawRow[colIndex];
-                } else {
-                  rowObj[colName] = '';
-                }
+                rowObj[colName] = (colIndex < rawRow.length) ? rawRow[colIndex] : '';
               });
               const amt = parseFloat(sanitizeNumberString(rowObj.amount)) || 0;
               const contrib = parseFloat(sanitizeNumberString(rowObj.contributed)) || 0;
@@ -366,12 +371,6 @@
         }
       }
 
-      /**
-       * handleRowColor:
-       * - If color === 'clear', we remove the manual override AND
-       *   set rowColor to '' (no color).
-       * - Else if color is e.g. 'green', 'yellow', 'red', we apply that override.
-       */
       function handleRowColor(uniqueKey, color) {
         if (!hasValidData) {
           showError('No valid data loaded.');
@@ -382,10 +381,8 @@
           setData(prev => prev.map(row => {
             if (row._uniqueKey === uniqueKey) {
               if (color === 'clear') {
-                // This means "Clear" the color (set rowColor to empty)
                 return { ...row, rowColor: '' };
               } else {
-                // Manually override with the chosen color
                 return { ...row, rowColor: color };
               }
             }
@@ -593,7 +590,6 @@
                         <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
-                        {/* Swap Auto => Clear, which sets rowColor to '' */}
                         <button onClick={() => handleRowColor(row._uniqueKey, 'clear')}>Clear</button>
                       </td>
                       {columns.map(col => {
@@ -627,19 +623,28 @@
             </table>
           </div>
 
-     {/* Instructions Section */}
           <div className="instructions">
-            <h2>Instructions:</h2>
+            <h2>Instructions (2 MB limit):</h2>
             <ol>
-              <li>Upload the CSV exported from the PD account.</li>
-              <li>You can filter by action, description, or amount. You will more than likely want to filter by "salary" in descriptions.</li>
-              <li>Once filtered, you can hit "Sort Amount" to sort the sheet by highest to lowest or lowest to highest.</li>
-              <li>You can either manually mark a row or input the amount "contributed" and it will auto-calculate the color based on the amount.</li>
-              <li>A “difference” column shows <code>(contributed - amount)</code>. It updates automatically when you type in a new contributed value.</li>
-              <li>Once finished, click "Save Current View" and it will export your work to an XLSX (Excel) spreadsheet to work with or share elsewhere.</li>
+              <li>
+                When you select a file larger than <code>2 MB</code>, you'll get an error message 
+                and the file won't be parsed.
+              </li>
+              <li>
+                CSV headers are interpreted case-insensitively. We check for a column 
+                named <code>amount</code> (in lowercase after transformHeader).
+              </li>
+              <li>
+                Color a row as Green/Yellow/Red or click “Clear” to remove the color override.
+              </li>
+              <li>
+                Enter "contributed" amounts to auto-calc difference and color (if no manual override).
+              </li>
+              <li>
+                Once done, click “Save Current View” to export an XLSX with color-coded rows.
+              </li>
             </ol>
           </div>
-
 
           {errorMessage && (
             <div className="error-box">
