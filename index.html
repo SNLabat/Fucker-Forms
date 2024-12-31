@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Fucker Forms (Win95 Style, Full-Width Responsive)</title>
+  <title>Fucker Forms - Multi-Theme</title>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- React / ReactDOM -->
@@ -15,132 +15,45 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
   <style>
-    /* Windows 95–style background color */
-    body {
-      background-color: #008080; /* teal reminiscent of Win95 wallpaper */
-      color: #000;
+    /* ---------------------------
+       1) Common base styling
+    ----------------------------*/
+    html, body {
       margin: 0;
       padding: 0;
-      font-family: "MS Sans Serif", Tahoma, Verdana, sans-serif;
     }
-
-    /* Responsive container with a 3D "window" style */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+                   Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    /* Container that houses the main content */
     .container {
-      background-color: #C3C7CB; /* typical Win95 window gray */
-      margin: 10px; /* small margin so it's not jammed on the edges */
-      padding: 10px;
-      border: 2px solid #FFFFFF;  /* top/left highlight */
-      border-right: 2px solid #808080; /* bottom/right shadow */
-      border-bottom: 2px solid #808080;
-      border-radius: 0; /* square corners for Win95 vibe */
-      width: calc(100% - 20px); /* full width minus margin */
+      transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+      margin: 20px;
+      padding: 20px;
+      border-radius: 8px;
     }
-
-    /* Media query: if narrower than 600px, reduce margins more */
-    @media (max-width: 600px) {
-      .container {
-        margin: 5px;
-        width: calc(100% - 10px);
-      }
-    }
-
-    /* Title-bar style top section */
-    .header-controls {
-      background: linear-gradient(to bottom, #000080, #000060);
-      color: #fff;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px;
-      margin-bottom: 10px;
-      border: 2px solid #808080;
-      border-top-color: #fff;
-      border-left-color: #fff;
-    }
-
-    /* Buttons: Win95 3D edges */
-    button {
-      font-family: "MS Sans Serif", Tahoma, Verdana, sans-serif;
-      font-size: 14px;
-      color: #000;
-      background-color: #C3C7CB;
-      border: 2px solid #808080;
-      border-top-color: #fff;
-      border-left-color: #fff;
-      padding: 2px 8px;
-      margin: 0 2px;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #ECE9D8;
-    }
-    .save-button {
-      background-color: #C3C7CB;
-    }
-    .save-button:hover {
-      background-color: #ECE9D8;
-    }
-    .save-button:disabled {
-      background-color: #cccccc;
-      border: none;
-      cursor: not-allowed;
-    }
-
-    /* Inputs => Win95 style text boxes */
-    input[type="file"],
-    input[type="text"],
-    input[type="number"] {
-      font-family: "MS Sans Serif", Tahoma, Verdana, sans-serif;
-      font-size: 14px;
-      color: #000;
-      background-color: #fff;
-      border: 2px solid #808080;
-      border-top-color: #fff;
-      border-left-color: #fff;
-      padding: 2px;
-      margin: 4px;
-    }
-
-    .filters {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-
-    /* 3D style container for the table */
+    /* Table container for scrolling */
     .table-container {
-      background-color: #C3C7CB;
-      border: 2px solid #808080;
-      border-top-color: #fff;
-      border-left-color: #fff;
-      padding: 5px;
       max-height: 600px;
       overflow-y: auto;
-      margin-top: 10px;
+      margin-top: 20px;
+      transition: background-color 0.3s, border-color 0.3s;
     }
-
     table {
       width: 100%;
       border-collapse: collapse;
-      background-color: #C3C7CB;
+      transition: background-color 0.3s;
+    }
+    th, td {
+      padding: 12px;
     }
     th {
-      background: #ECE9D8;
-      color: #000;
-      padding: 8px;
-      text-align: left;
-      border: 1px solid #808080;
-      border-top-color: #fff;
-      border-left-color: #fff;
       cursor: pointer;
+      text-align: left;
     }
-    td {
-      padding: 8px;
-      border-bottom: 1px solid #808080;
-    }
-
-    /* Row color-coded classes remain same */
+    /* Color-coded row classes (shared) */
     .row-green {
       background-color: rgba(144, 238, 144, 0.2);
     }
@@ -151,46 +64,211 @@
       background-color: rgba(255, 182, 182, 0.2);
     }
 
-    /* instructions => 3D panel */
+    /* Common input styles */
+    input[type="file"],
+    input[type="text"],
+    input[type="number"] {
+      margin: 5px;
+      padding: 8px;
+      border-radius: 4px;
+    }
+    /* Buttons shared style */
+    button {
+      padding: 6px 12px;
+      margin: 0 4px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .header-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .save-button {
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .save-button:disabled {
+      cursor: not-allowed;
+    }
+    /* Filters row */
+    .filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    /* Instructions and error box */
     .instructions {
-      background-color: #C3C7CB;
-      color: #000;
-      border: 2px solid #808080;
-      border-top-color: #fff;
-      border-left-color: #fff;
-      padding: 10px;
-      margin-top: 10px;
+      margin-top: 20px;
+      padding: 20px;
       max-width: 600px;
+      border-radius: 8px;
     }
     .instructions h2 {
       margin-top: 0;
-      font-size: 16px;
     }
     .instructions ol {
-      margin: 8px 0;
+      margin: 10px 0;
       padding-left: 20px;
     }
-
-    /* error-box => 3D message box */
     .error-box {
-      background-color: #C3C7CB;
-      color: #000;
-      border: 2px solid #808080;
-      border-top-color: #fff;
-      border-left-color: #fff;
-      padding: 10px;
-      margin-top: 10px;
+      margin-top: 20px;
+      padding: 20px;
+      border-radius: 8px;
       max-width: 700px;
+      word-wrap: break-word;
     }
     .error-box h2 {
       margin-top: 0;
-      color: #f00; 
-      font-size: 16px;
+    }
+
+    /* ---------------------------
+       2) Dark theme
+    ----------------------------*/
+    body.dark-mode {
+      background-color: #1a1a1a;
+      color: #ffffff;
+    }
+    .dark-mode .container {
+      background-color: #2d2d2d;
+      color: #ffffff;
+      border: none;
+    }
+    .dark-mode .table-container {
+      background-color: #2d2d2d;
+      border: none;
+    }
+    .dark-mode table {
+      background-color: #2d2d2d;
+    }
+    .dark-mode th {
+      background-color: #404040;
+    }
+    .dark-mode td {
+      border-bottom: 1px solid #404040;
+    }
+    .dark-mode input[type="file"] {
+      background-color: #404040;
+      border: none;
+      color: white;
+    }
+    .dark-mode input[type="text"],
+    .dark-mode input[type="number"] {
+      background-color: #404040;
+      border: 1px solid #555;
+      color: white;
+    }
+    .dark-mode button {
+      background-color: #404040;
+      color: #fff;
+      border: none;
+    }
+    .dark-mode .save-button {
+      background-color: #4CAF50;
+      color: white;
+    }
+    .dark-mode .save-button:hover {
+      background-color: #45a049;
+    }
+    .dark-mode .save-button:disabled {
+      background-color: #cccccc;
+      color: #666;
+    }
+    .dark-mode .instructions {
+      background-color: #202020;
+      color: #fff;
+    }
+    .dark-mode .error-box {
+      background-color: #660000;
+      color: #fff;
+    }
+
+    /* ---------------------------
+       3) Windows 95 (Fucker 95) theme
+    ----------------------------*/
+    body.win95-mode {
+      background-color: #008080; /* teal reminiscent of Win95 wallpaper */
+      color: #000;
+    }
+    .win95-mode .container {
+      background-color: #C3C7CB; 
+      border: 2px solid #FFFFFF; 
+      border-right: 2px solid #808080; 
+      border-bottom: 2px solid #808080; 
+      border-radius: 0; 
+    }
+    .win95-mode .table-container {
+      background-color: #C3C7CB;
+      border: 2px solid #808080;
+      border-top-color: #FFFFFF;
+      border-left-color: #FFFFFF;
+    }
+    .win95-mode table {
+      background-color: #C3C7CB;
+    }
+    .win95-mode th {
+      background: #ECE9D8;
+      color: #000;
+      border: 1px solid #808080;
+      border-top-color: #FFFFFF;
+      border-left-color: #FFFFFF;
+    }
+    .win95-mode td {
+      border-bottom: 1px solid #808080;
+    }
+    .win95-mode input[type="file"],
+    .win95-mode input[type="text"],
+    .win95-mode input[type="number"] {
+      background-color: #FFFFFF;
+      color: #000;
+      border: 2px solid #808080;
+      border-top-color: #FFFFFF;
+      border-left-color: #FFFFFF;
+    }
+    .win95-mode button {
+      font-family: "MS Sans Serif", Tahoma, Verdana, sans-serif;
+      font-size: 14px;
+      color: #000;
+      background-color: #C3C7CB;
+      border: 2px solid #808080;
+      border-top-color: #FFFFFF;
+      border-left-color: #FFFFFF;
+    }
+    .win95-mode button:hover {
+      background-color: #ECE9D8;
+    }
+    .win95-mode .save-button {
+      background-color: #C3C7CB;
+    }
+    .win95-mode .save-button:hover {
+      background-color: #ECE9D8;
+    }
+    .win95-mode .save-button:disabled {
+      background-color: #cccccc;
+      border: none;
+      cursor: not-allowed;
+    }
+    .win95-mode .instructions {
+      background-color: #C3C7CB;
+      color: #000;
+      border: 2px solid #808080;
+      border-top-color: #FFFFFF;
+      border-left-color: #FFFFFF;
+    }
+    .win95-mode .error-box {
+      background-color: #C3C7CB;
+      color: #000;
+      border: 2px solid #808080;
+      border-top-color: #FFFFFF;
+      border-left-color: #FFFFFF;
     }
 
   </style>
 </head>
-<body>
+<body class="dark-mode"><!-- default to dark mode -->
   <div id="root"></div>
 
   <script type="text/babel">
@@ -206,6 +284,13 @@
       const [rowColors, setRowColors] = useState({});
       const [sortDirection, setSortDirection] = useState('asc');
       const [errorMessage, setErrorMessage] = useState('');
+      // New: theme state, can be "dark-mode" or "win95-mode"
+      const [theme, setTheme] = useState('dark-mode'); // default to dark mode
+
+      // Toggle the body class whenever theme changes
+      React.useEffect(() => {
+        document.body.className = theme;
+      }, [theme]);
 
       const REQUIRED_COLUMN = 'amount';
 
@@ -224,7 +309,6 @@
       function showError(msg) {
         setErrorMessage(msg);
       }
-
       function clearError() {
         setErrorMessage('');
       }
@@ -260,7 +344,6 @@
           complete: (results) => {
             const parsedData = results.data;
             const fields = results.meta.fields || [];
-
             if (!parsedData || parsedData.length === 0) {
               showError("Error: CSV is empty. Please check your file.");
               return;
@@ -278,7 +361,6 @@
               const amt = parseFloat(sanitizeNumberString(row.amount)) || 0;
               const contrib = parseFloat(sanitizeNumberString(row.contributed)) || 0;
               const diff = contrib - amt;
-
               return {
                 ...row,
                 _uniqueKey: `row-${Date.now()}-${index}`,
@@ -287,7 +369,6 @@
                 difference: diff.toString(),
               };
             });
-
             setData(rows);
             setColumns(newCols);
           },
@@ -308,7 +389,6 @@
               showError('Error: Excel file has no sheets.');
               return;
             }
-
             const sheetName = workbook.SheetNames[0];
             const sheet = workbook.Sheets[sheetName];
             const jsonData = XLSXLib.utils.sheet_to_json(sheet, { header: 1 });
@@ -316,10 +396,8 @@
               showError('Error: Excel sheet is empty.');
               return;
             }
-
             let headers = jsonData[0].map(h => String(h || '').toLowerCase().trim());
             const rowsArr = jsonData.slice(1);
-
             if (!headers.includes(REQUIRED_COLUMN)) {
               showError(`Error: Required column "${REQUIRED_COLUMN}" missing in XLSX (case-insensitive).`);
               return;
@@ -337,13 +415,11 @@
               const contrib = parseFloat(sanitizeNumberString(rowObj.contributed)) || 0;
               const diff = contrib - amt;
               rowObj.difference = diff.toString();
-
               rowObj._uniqueKey = `row-${Date.now()}-${rowIndex}`;
               rowObj.contributed = rowObj.contributed || '';
               rowObj.rowColor = rowObj.rowColor || '';
               return rowObj;
             });
-
             setData(rowObjects);
             setColumns(headers);
           } catch (err) {
@@ -355,8 +431,7 @@
 
       function sanitizeNumberString(val) {
         if (val === null || val === undefined) return '';
-        const str = String(val);
-        return str.replace(/[^\d.-]/g, '');
+        return String(val).replace(/[^\d.-]/g, '');
       }
 
       function computeAutoColor(row) {
@@ -451,7 +526,7 @@
         }
       }
 
-      const filteredAndSortedData = useMemo(() => {
+      const filteredAndSortedData = React.useMemo(() => {
         if (!hasValidData) return [];
         try {
           let processed = [...data];
@@ -499,7 +574,6 @@
           });
           const wb = XLSXLib.utils.book_new();
           const ws = XLSXLib.utils.json_to_sheet(dataToSave);
-
           filteredAndSortedData.forEach((row, idx) => {
             const colorName = row.rowColor || '';
             if (!colorName) return;
@@ -554,9 +628,22 @@
         }
       }
 
+      // Theme selector
+      const handleThemeChange = (e) => {
+        setTheme(e.target.value);
+      };
+
       return (
         <div className="container">
-          {/* Title bar */}
+          {/* Theme Dropdown */}
+          <div style={{ marginBottom: '10px' }}>
+            <label style={{ marginRight: '8px' }}>Theme:</label>
+            <select value={theme} onChange={handleThemeChange}>
+              <option value="dark-mode">Dark Mode</option>
+              <option value="win95-mode">Fucker 95</option>
+            </select>
+          </div>
+
           <div className="header-controls">
             <input type="file" accept=".csv,.xlsx" onChange={handleFileUpload} />
             <button
@@ -648,10 +735,11 @@
           </div>
 
           <div className="instructions">
-            <h2>Instructions (Win95 Style, Full-Width):</h2>
+            <h2>Instructions:</h2>
             <ol>
-              <li>Upload a CSV or XLSX (case-insensitive “amount” column for CSV) to see data.</li>
-              <li>Filter, sort by “amount,” color rows manually or by typed “contributed.”</li>
+              <li>Select a theme from the dropdown (Dark Mode or Fucker 95 Windows 95 look).</li>
+              <li>Upload your CSV or XLSX. Must have an “amount” column (case-insensitive for CSV).</li>
+              <li>Filter, sort, manually color rows or type “contributed.”</li>
               <li>Click “Save Current View” to export an XLSX with color-coded rows.</li>
             </ol>
           </div>
