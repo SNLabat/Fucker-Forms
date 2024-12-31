@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Large File Handling Example</title>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fucker Forms</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <!-- React / ReactDOM -->
   <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-  <!-- Babel for in-browser transpiling (not recommended for production, but fine for demos) -->
+  <!-- Babel for in-browser transpiling (for demos) -->
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
-  <!-- PapaParse for CSV -->
+  <!-- Papa Parse for CSV -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
   <!-- XLSX library -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -20,7 +20,8 @@
       color: #ffffff;
       margin: 0;
       padding: 20px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
+                   Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     }
     .container {
       background-color: #2d2d2d;
@@ -47,7 +48,6 @@
       padding: 12px;
       border-bottom: 1px solid #404040;
     }
-    /* Color-coded row classes */
     .row-green {
       background-color: rgba(144, 238, 144, 0.2);
     }
@@ -117,7 +117,6 @@
       -webkit-appearance: none;
       margin: 0;
     }
-    /* Instructions styling */
     .instructions {
       background-color: #202020;
       margin-top: 20px;
@@ -132,7 +131,6 @@
       margin: 10px 0;
       padding-left: 20px;
     }
-    /* Error box styling */
     .error-box {
       background-color: #660000;
       color: #ffffff;
@@ -157,7 +155,6 @@
     const PapaLib = window.Papa;
 
     function App() {
-      // State that might hold partial or full rows
       const [data, setData] = useState([]);
       const [columns, setColumns] = useState([]);
       const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
@@ -166,10 +163,9 @@
       const [sortDirection, setSortDirection] = useState('asc');
       const [errorMessage, setErrorMessage] = useState('');
 
-      // For demonstration, we require an "amount" column
+      // Suppose we require a column named "amount" (in lowercase after transformHeader)
       const REQUIRED_COLUMN = 'amount';
 
-      // Clears data
       function resetState() {
         setData([]);
         setColumns([]);
@@ -178,7 +174,6 @@
         setSortConfig({ key: null, direction: 'asc' });
       }
 
-      // We consider data "valid" if it has the required column and at least 1 row
       const hasValidData = useMemo(() => {
         return columns.includes(REQUIRED_COLUMN) && data.length > 0;
       }, [columns, data]);
@@ -186,6 +181,7 @@
       function showError(msg) {
         setErrorMessage(msg);
       }
+
       function clearError() {
         setErrorMessage('');
       }
@@ -200,109 +196,51 @@
         resetState();
         clearError();
 
-        // Depending on extension, parse differently
         try {
           if (file.name.toLowerCase().endsWith('.csv')) {
-            parseLargeCSV(file);
+            parseCSVCaseInsensitive(file);
           } else if (file.name.toLowerCase().endsWith('.xlsx')) {
             parseXLSX(file);
           } else {
             showError('Unsupported file type. Please upload a .csv or .xlsx file.');
           }
         } catch (err) {
-          showError(`Error initializing parse: ${err.message}`);
+          showError(`Error loading file: ${err.message}`);
         }
       }
 
-      // 1) Large CSV parsing approach: chunk
-      function parseLargeCSV(file) {
+      // 1) CSV Parsing with case-insensitive headers
+      function parseCSVCaseInsensitive(file) {
         PapaLib.parse(file, {
           header: true,
-          chunkSize: 1024 * 64, // 64KB chunk; you can adjust
-          chunk: (results, parser) => {
-            // results.data is the chunk of rows
-            // If your CSV is huge, you might only want to store partial or do aggregates
-            // For demonstration, we accumulate all in state (still might be big)
-            if (!results.data || results.data.length === 0) return;
+          // transformHeader ensures each column name is lowercased and trimmed
+          transformHeader: (header) => header.toLowerCase().trim(),
+          complete: (results) => {
+            const parsedData = results.data;
+            const fields = results.meta.fields || [];
 
-            // If we haven't set columns yet, do so
-            if (columns.length === 0) {
-              const fields = results.meta.fields || [];
-              // Check for required column
-              if (!fields.includes(REQUIRED_COLUMN)) {
-                showError(`Error: Required column "${REQUIRED_COLUMN}" missing in CSV. Aborting parse.`);
-                parser.abort();
-                return;
-              }
-              // Make sure difference, contributed, rowColor exist
-              let newColumns = [...fields];
-              if (!newColumns.includes('difference')) newColumns.push('difference');
-              if (!newColumns.includes('contributed')) newColumns.push('contributed');
-              if (!newColumns.includes('rowColor')) newColumns.push('rowColor');
-              setColumns(newColumns);
-            }
-
-            // Build new chunk rows
-            const chunkRows = results.data.map((row, index) => {
-              const amt = parseFloat(sanitizeNumberString(row.amount)) || 0;
-              const contributed = parseFloat(sanitizeNumberString(row.contributed)) || 0;
-              const diff = contributed - amt;
-
-              return {
-                ...row,
-                _uniqueKey: `row-${Date.now()}-${Math.random()}-${index}`, // unique ID
-                contributed: row.contributed || '',
-                rowColor: row.rowColor || '',
-                difference: diff.toString(),
-              };
-            });
-
-            // Accumulate in our main data
-            setData(prev => [...prev, ...chunkRows]);
-          },
-          complete: () => {
-            console.log("Done chunking CSV!");
-          },
-          error: (err) => {
-            showError(`Papa Parse error: ${err.message}`);
-          }
-        });
-      }
-
-      // 2) XLSX parsing
-      function parseXLSX(file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const content = e.target.result;
-            const workbook = XLSXLib.read(content, { type: 'binary' });
-            if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-              showError('This Excel file has no sheets.');
-              return;
-            }
-            const sheetName = workbook.SheetNames[0];
-            const sheet = workbook.Sheets[sheetName];
-            const jsonData = XLSXLib.utils.sheet_to_json(sheet);
-            if (!jsonData || jsonData.length === 0) {
-              showError('Excel sheet is empty.');
+            if (!parsedData || parsedData.length === 0) {
+              showError("Error: CSV is empty. Please check your file.");
               return;
             }
 
-            const baseCols = Object.keys(jsonData[0]);
-            if (!baseCols.includes(REQUIRED_COLUMN)) {
-              showError(`Required column "${REQUIRED_COLUMN}" missing in XLSX. Aborting parse.`);
+            // Check if we have 'amount'
+            if (!fields.includes(REQUIRED_COLUMN)) {
+              showError(`Error: Required column "${REQUIRED_COLUMN}" is missing in CSV (case-insensitive).`);
               return;
             }
+
             // Ensure difference, contributed, rowColor
-            let newColumns = [...baseCols];
-            if (!newColumns.includes('difference')) newColumns.push('difference');
-            if (!newColumns.includes('contributed')) newColumns.push('contributed');
-            if (!newColumns.includes('rowColor')) newColumns.push('rowColor');
+            let newCols = [...fields];
+            if (!newCols.includes('difference')) newCols.push('difference');
+            if (!newCols.includes('contributed')) newCols.push('contributed');
+            if (!newCols.includes('rowColor')) newCols.push('rowColor');
 
-            const rows = jsonData.map((row, index) => {
+            // Construct final rows
+            const rows = parsedData.map((row, index) => {
               const amt = parseFloat(sanitizeNumberString(row.amount)) || 0;
-              const contributed = parseFloat(sanitizeNumberString(row.contributed)) || 0;
-              const diff = contributed - amt;
+              const contrib = parseFloat(sanitizeNumberString(row.contributed)) || 0;
+              const diff = contrib - amt;
 
               return {
                 ...row,
@@ -314,7 +252,77 @@
             });
 
             setData(rows);
-            setColumns(newColumns);
+            setColumns(newCols);
+          },
+          error: (err) => {
+            showError(`Papa Parse error: ${err.message}`);
+          }
+        });
+      }
+
+      // 2) XLSX Parsing (no transformHeader approach built-in, so we handle it differently)
+      function parseXLSX(file) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const content = evt.target.result;
+            const workbook = XLSXLib.read(content, { type: 'binary' });
+            if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+              showError('Error: Excel file has no sheets.');
+              return;
+            }
+
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const jsonData = XLSXLib.utils.sheet_to_json(sheet, { header: 1 });
+            // 'header: 1' => array of arrays (raw lines). We'll lower-case the first row manually.
+
+            if (!jsonData || jsonData.length === 0) {
+              showError('Error: Excel sheet is empty.');
+              return;
+            }
+
+            // The first row is the headers. We transform them to lowercase
+            let headers = jsonData[0].map(h => String(h || '').toLowerCase().trim());
+            const rowsArr = jsonData.slice(1); // the rest are data
+
+            if (!headers.includes(REQUIRED_COLUMN)) {
+              showError(`Error: Required column "${REQUIRED_COLUMN}" missing in XLSX (case-insensitive).`);
+              return;
+            }
+
+            // We'll unify the rest of the columns: difference, contributed, rowColor if missing
+            if (!headers.includes('difference')) headers.push('difference');
+            if (!headers.includes('contributed')) headers.push('contributed');
+            if (!headers.includes('rowColor')) headers.push('rowColor');
+
+            // Now build final row objects from rowsArr
+            const rowObjects = rowsArr.map((rawRow, rowIndex) => {
+              const rowObj = {};
+              // for each col in headers (except any that go beyond rawRow length)
+              headers.forEach((colName, colIndex) => {
+                if (colIndex < rawRow.length) {
+                  rowObj[colName] = rawRow[colIndex];
+                } else {
+                  // Some columns might be missing data
+                  rowObj[colName] = '';
+                }
+              });
+              // Compute difference
+              const amt = parseFloat(sanitizeNumberString(rowObj.amount)) || 0;
+              const contrib = parseFloat(sanitizeNumberString(rowObj.contributed)) || 0;
+              const diff = contrib - amt;
+              rowObj.difference = diff.toString();
+
+              rowObj._uniqueKey = `row-${Date.now()}-${rowIndex}`;
+              rowObj.contributed = rowObj.contributed || '';
+              rowObj.rowColor = rowObj.rowColor || '';
+
+              return rowObj;
+            });
+
+            setData(rowObjects);
+            setColumns(headers);
           } catch (err) {
             showError(`Error parsing XLSX: ${err.message}`);
           }
@@ -322,14 +330,12 @@
         reader.readAsBinaryString(file);
       }
 
-      // Helps remove commas, $, etc.
       function sanitizeNumberString(val) {
         if (val === null || val === undefined) return '';
         const str = String(val);
         return str.replace(/[^\d.-]/g, '');
       }
 
-      // After we have rows, we can compute row color
       function computeAutoColor(row) {
         try {
           if (!hasValidData) return '';
@@ -345,25 +351,23 @@
         }
       }
 
-      function handleContributedChange(uniqueKey, newValue) {
+      function handleContributedChange(uniqueKey, newVal) {
         if (!hasValidData) {
-          showError('No valid data. Please upload a valid sheet with "amount" column.');
+          showError('No valid data loaded. Please upload a valid sheet with "amount" column.');
           return;
         }
         try {
           setData(prev => prev.map(row => {
             if (row._uniqueKey === uniqueKey) {
               const amt = parseFloat(sanitizeNumberString(row.amount)) || 0;
-              const contrib = parseFloat(sanitizeNumberString(newValue)) || 0;
-              const diff = contrib - amt;
-
+              const c = parseFloat(sanitizeNumberString(newVal)) || 0;
+              const diff = c - amt;
               const updated = {
                 ...row,
-                contributed: newValue,
-                difference: diff.toString(),
+                contributed: newVal,
+                difference: diff.toString()
               };
-
-              // If rowColors override is empty, use auto color
+              // If there's a manual override, keep that; else auto
               const manual = rowColors[uniqueKey];
               updated.rowColor = manual || computeAutoColor(updated);
               return updated;
@@ -385,7 +389,6 @@
           setData(prev => prev.map(row => {
             if (row._uniqueKey === uniqueKey) {
               if (!color) {
-                // revert to auto
                 const auto = computeAutoColor(row);
                 return { ...row, rowColor: auto };
               }
@@ -402,7 +405,6 @@
         setFilters(prev => ({ ...prev, [column]: value }));
       }
 
-      // Sort by 'amount' column
       function handleAmountSort() {
         if (!hasValidData) {
           showError('No valid data to sort.');
@@ -412,27 +414,25 @@
         setSortConfig({ key: 'amount', direction: sortDirection });
       }
 
-      function handleSort(column) {
+      function handleSort(col) {
         if (!hasValidData) {
           showError('No valid data loaded. Cannot sort.');
           return;
         }
-        if (sortConfig.key === column) {
+        if (sortConfig.key === col) {
           setSortConfig({
-            key: column,
+            key: col,
             direction: sortConfig.direction === 'asc' ? 'desc' : 'asc'
           });
         } else {
-          setSortConfig({ key: column, direction: 'asc' });
+          setSortConfig({ key: col, direction: 'asc' });
         }
       }
 
       const filteredAndSortedData = useMemo(() => {
         if (!hasValidData) return [];
-
         try {
           let processed = [...data];
-          // filter
           Object.keys(filters).forEach(col => {
             const val = (filters[col] || '').toLowerCase();
             if (val) {
@@ -441,8 +441,6 @@
               );
             }
           });
-
-          // sort by amount
           if (sortConfig.key === 'amount') {
             processed.sort((a, b) => {
               const aVal = parseFloat(sanitizeNumberString(a.amount || '')) || 0;
@@ -457,7 +455,6 @@
         }
       }, [data, filters, sortConfig, hasValidData]);
 
-      // XLSX export
       function s2ab(s) {
         const buf = new ArrayBuffer(s.length);
         const view = new Uint8Array(buf);
@@ -469,20 +466,17 @@
 
       function handleSave() {
         if (!hasValidData || !filteredAndSortedData.length) {
-          showError('No valid data to save. Upload a valid sheet with "amount" column first.');
+          showError('No valid data to save. Please upload a sheet with the "amount" column first.');
           return;
         }
         try {
           const dataToSave = filteredAndSortedData.map(row => {
             const newRow = { ...row };
-            delete newRow._uniqueKey; // remove internal key
+            delete newRow._uniqueKey;
             return newRow;
           });
-
           const wb = XLSXLib.utils.book_new();
           const ws = XLSXLib.utils.json_to_sheet(dataToSave);
-
-          // apply color styling
           filteredAndSortedData.forEach((row, idx) => {
             const colorName = row.rowColor || '';
             if (!colorName) return;
@@ -505,7 +499,6 @@
             };
             const style = colorMap[colorName];
             if (!style) return;
-
             columns.forEach((col, colIndex) => {
               const cellRef = XLSXLib.utils.encode_cell({ r: idx + 1, c: colIndex });
               if (!ws[cellRef]) ws[cellRef] = {};
@@ -520,16 +513,12 @@
               };
             });
           });
-
-          // column widths
           const colWidths = columns.map(col => ({
             wch: col === 'contributed' ? 15 : Math.max(col.length, 10)
           }));
           ws['!cols'] = colWidths;
-
           XLSXLib.utils.book_append_sheet(wb, ws, 'Sheet1');
           const wbout = XLSXLib.write(wb, { bookType: 'xlsx', type: 'binary', cellStyles: true });
-
           const blob = new Blob([s2ab(wbout)], { type: 'application/octet-stream' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
@@ -557,7 +546,6 @@
 
           <div className="filters-and-sort">
             <div className="filters">
-              {/* Example filter columns. Adjust as needed. */}
               {['action', 'description', 'done_at', 'amount', 'difference'].map(col => (
                 columns.includes(col) && (
                   <div key={col}>
@@ -605,7 +593,6 @@
                   return (
                     <tr key={row._uniqueKey} className={highlightClass}>
                       <td>
-                        {/* Manual color overrides */}
                         <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
@@ -642,35 +629,28 @@
             </table>
           </div>
 
-          {/* Instructions Section */}
           <div className="instructions">
-            <h2>Instructions (Large CSV / XLSX):</h2>
+            <h2>Instructions:</h2>
             <ol>
               <li>
-                Upload a large <code>.csv</code> (chunked) or <code>.xlsx</code> (all at once).
+                If you upload a CSV with headers like “Amount” / “AMOUNT”, 
+                they are automatically converted to lowercase <code>amount</code> by 
+                <strong> transformHeader</strong>.
               </li>
               <li>
-                For CSV, Papa Parse processes it in chunks. Each chunk is appended to the table in real time.
+                We also unify them for sorting, filtering, etc.
               </li>
               <li>
-                You can filter by columns (like <code>amount</code> or <code>description</code>) 
-                or sort by <code>amount</code>.
+                XLSX files are still handled differently, where we manually convert 
+                the header row to lowercase in code.
               </li>
               <li>
-                The row color changes automatically if <code>contributed &lt; amount / 2</code> 
-                (red), <code>contributed &gt; amount</code> (green), or otherwise (yellow).
-              </li>
-              <li>
-                Manually override any row color with the buttons (Green/Yellow/Red/Auto).
-              </li>
-              <li>
-                When finished, click <strong>Save Current View</strong> to export as <code>.xlsx</code> 
-                with all your color-coding and columns (<code>difference</code>, etc.).
+                Type your "contributed" amounts to auto-calc the difference and color. 
+                Click <strong>Save Current View</strong> to export to XLSX.
               </li>
             </ol>
           </div>
 
-          {/* Error Message Section */}
           {errorMessage && (
             <div className="error-box">
               <h2>Error</h2>
