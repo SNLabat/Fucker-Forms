@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Fucker Forms</title>
+  <title>Fucker Forms - Multi-Theme w/ Clear Fix</title>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- React / ReactDOM -->
@@ -16,7 +16,7 @@
 
   <style>
     /* ---------------------------
-       1) Common base styling
+       1) Base styling
     ----------------------------*/
     html, body {
       margin: 0;
@@ -27,14 +27,12 @@
                    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       transition: background-color 0.3s, color 0.3s;
     }
-    /* Container that houses the main content */
     .container {
       transition: background-color 0.3s, border-color 0.3s, color 0.3s;
       margin: 20px;
       padding: 20px;
       border-radius: 8px;
     }
-    /* Table container for scrolling */
     .table-container {
       max-height: 600px;
       overflow-y: auto;
@@ -53,7 +51,7 @@
       cursor: pointer;
       text-align: left;
     }
-    /* Color-coded row classes (shared) */
+    /* color-coded row classes */
     .row-green {
       background-color: rgba(144, 238, 144, 0.2);
     }
@@ -64,7 +62,6 @@
       background-color: rgba(255, 182, 182, 0.2);
     }
 
-    /* Common input styles */
     input[type="file"],
     input[type="text"],
     input[type="number"] {
@@ -72,7 +69,6 @@
       padding: 8px;
       border-radius: 4px;
     }
-    /* Buttons shared style */
     button {
       padding: 6px 12px;
       margin: 0 4px;
@@ -93,14 +89,12 @@
     .save-button:disabled {
       cursor: not-allowed;
     }
-    /* Filters row */
     .filters {
       display: flex;
       gap: 10px;
       margin-bottom: 20px;
       flex-wrap: wrap;
     }
-    /* Instructions and error box */
     .instructions {
       margin-top: 20px;
       padding: 20px;
@@ -268,11 +262,11 @@
 
   </style>
 </head>
-<body class="dark-mode"><!-- default to dark mode -->
+<body class="dark-mode"><!-- default theme is dark-mode -->
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useMemo } = React;
+    const { useState, useMemo, useEffect } = React;
     const XLSXLib = window.XLSX;
     const PapaLib = window.Papa;
 
@@ -284,11 +278,11 @@
       const [rowColors, setRowColors] = useState({});
       const [sortDirection, setSortDirection] = useState('asc');
       const [errorMessage, setErrorMessage] = useState('');
-      // New: theme state, can be "dark-mode" or "win95-mode"
-      const [theme, setTheme] = useState('dark-mode'); // default to dark mode
+      // new: theme state => "dark-mode" or "win95-mode"
+      const [theme, setTheme] = useState('dark-mode'); 
 
-      // Toggle the body class whenever theme changes
-      React.useEffect(() => {
+      useEffect(() => {
+        // On theme change => set body class
         document.body.className = theme;
       }, [theme]);
 
@@ -309,8 +303,13 @@
       function showError(msg) {
         setErrorMessage(msg);
       }
+
       function clearError() {
         setErrorMessage('');
+      }
+
+      function handleThemeChange(e) {
+        setTheme(e.target.value);
       }
 
       function handleFileUpload(e) {
@@ -336,7 +335,7 @@
         }
       }
 
-      // CSV parse w/ case-insensitive headers
+      // CSV parse with case-insensitive headers
       function parseCSVCaseInsensitive(file) {
         PapaLib.parse(file, {
           header: true,
@@ -460,13 +459,10 @@
               const amt = parseFloat(sanitizeNumberString(row.amount)) || 0;
               const c = parseFloat(sanitizeNumberString(newVal)) || 0;
               const diff = c - amt;
-              const updated = {
-                ...row,
-                contributed: newVal,
-                difference: diff.toString()
-              };
+              const updated = { ...row, contributed: newVal, difference: diff.toString() };
+              // If we have a manual color override in rowColors => use it
               const manual = rowColors[uniqueKey];
-              updated.rowColor = manual || computeAutoColor(updated);
+              updated.rowColor = manual ? manual : computeAutoColor(updated);
               return updated;
             }
             return row;
@@ -476,18 +472,31 @@
         }
       }
 
+      /* The fix: if color === 'clear', we delete from rowColors so that future changes revert to auto color. */
       function handleRowColor(uniqueKey, color) {
         if (!hasValidData) {
           showError('No valid data loaded.');
           return;
         }
         try {
-          setRowColors(prev => ({ ...prev, [uniqueKey]: color }));
+          setRowColors(prev => {
+            const updated = { ...prev };
+            if (color === 'clear') {
+              delete updated[uniqueKey];
+            } else {
+              updated[uniqueKey] = color;
+            }
+            return updated;
+          });
+
           setData(prev => prev.map(row => {
             if (row._uniqueKey === uniqueKey) {
               if (color === 'clear') {
-                return { ...row, rowColor: '' };
+                // Immediately recalc auto color
+                const auto = computeAutoColor(row);
+                return { ...row, rowColor: auto };
               } else {
+                // Manual override
                 return { ...row, rowColor: color };
               }
             }
@@ -526,7 +535,7 @@
         }
       }
 
-      const filteredAndSortedData = React.useMemo(() => {
+      const filteredAndSortedData = useMemo(() => {
         if (!hasValidData) return [];
         try {
           let processed = [...data];
@@ -578,21 +587,9 @@
             const colorName = row.rowColor || '';
             if (!colorName) return;
             const colorMap = {
-              green: {
-                patternType: 'solid',
-                fgColor: { rgb: '90EE90' },
-                bgColor: { rgb: '90EE90' }
-              },
-              yellow: {
-                patternType: 'solid',
-                fgColor: { rgb: 'FFFFE0' },
-                bgColor: { rgb: 'FFFFE0' }
-              },
-              red: {
-                patternType: 'solid',
-                fgColor: { rgb: 'FFB6B6' },
-                bgColor: { rgb: 'FFB6B6' }
-              }
+              green: { patternType: 'solid', fgColor: { rgb: '90EE90' }, bgColor: { rgb: '90EE90' } },
+              yellow: { patternType: 'solid', fgColor: { rgb: 'FFFFE0' }, bgColor: { rgb: 'FFFFE0' } },
+              red: { patternType: 'solid', fgColor: { rgb: 'FFB6B6' }, bgColor: { rgb: 'FFB6B6' } },
             };
             const style = colorMap[colorName];
             if (!style) return;
@@ -628,14 +625,9 @@
         }
       }
 
-      // Theme selector
-      const handleThemeChange = (e) => {
-        setTheme(e.target.value);
-      };
-
       return (
         <div className="container">
-          {/* Theme Dropdown */}
+          {/* Theme dropdown */}
           <div style={{ marginBottom: '10px' }}>
             <label style={{ marginRight: '8px' }}>Theme:</label>
             <select value={theme} onChange={handleThemeChange}>
@@ -704,7 +696,6 @@
                   return (
                     <tr key={row._uniqueKey} className={highlightClass}>
                       <td>
-                        {/* Manual color overrides */}
                         <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
@@ -734,20 +725,16 @@
             </table>
           </div>
 
-     {/* Instructions Section */}
           <div className="instructions">
-            <h2>Fucker Forms User Manual:</h2>
+            <h2>Instructions:</h2>
             <ol>
-              <li>Upload the CSV exported from the PD account.</li>
-              <li>You can filter by action, description, or amount. You will more than likely want to filter by "salary" in descriptions.</li>
-              <li>Once filtered, you can hit "Sort Amount" to sort the sheet by highest to lowest or lowest to highest.</li>
-              <li>You can either manually mark a row or input the amount "contributed" and it will auto-calculate the color based on the amount.</li>
-              <li>A “difference” column shows <code>(contributed - amount)</code>. It updates automatically when you type in a new contributed value.</li>
-              <li>Once finished, click "Save Current View" and it will export your work to an XLSX (Excel) spreadsheet to work with or share elsewhere.</li>
-              <li>Don't like the way things look? Try a different theme!</li>
+              <li>Choose a theme from the dropdown (Dark Mode or Fucker 95 Windows 95 look).</li>
+              <li>Upload the CSV or XLSX. Must have “amount” column (case-insensitive for CSV!).</li>
+              <li>Filter by action/description/amount, sort by amount, color rows, or type “contributed.”</li>
+              <li>If you “Clear” a row’s color, the next time you change “contributed,” it reverts to auto-color.</li>
+              <li>Click “Save Current View” to export an XLSX with color-coded rows.</li>
             </ol>
           </div>
-
 
           {errorMessage && (
             <div className="error-box">
