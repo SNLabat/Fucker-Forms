@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Fucker Forms (Clear instead of Auto)</title>
+  <title>Fucker Forms</title>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <!-- React / ReactDOM -->
@@ -627,16 +627,19 @@
             </table>
           </div>
 
+     {/* Instructions Section */}
           <div className="instructions">
             <h2>Instructions:</h2>
             <ol>
-              <li>Upload the CSV or XLSX with an 'amount' column (case-insensitive for CSV!).</li>
-              <li>You can filter by 'amount', 'description', etc. and click "Sort Amount".</li>
-              <li>Manually color a row as Green/Yellow/Red, or click “Clear” to remove the override.</li>
-              <li>Enter "contributed" amounts to auto-calc the difference and color if there's no manual override.</li>
-              <li>Click <strong>Save Current View</strong> to export the data (with color coding) to an XLSX file.</li>
+              <li>Upload the CSV exported from the PD account.</li>
+              <li>You can filter by action, description, or amount. You will more than likely want to filter by "salary" in descriptions.</li>
+              <li>Once filtered, you can hit "Sort Amount" to sort the sheet by highest to lowest or lowest to highest.</li>
+              <li>You can either manually mark a row or input the amount "contributed" and it will auto-calculate the color based on the amount.</li>
+              <li>A “difference” column shows <code>(contributed - amount)</code>. It updates automatically when you type in a new contributed value.</li>
+              <li>Once finished, click "Save Current View" and it will export your work to an XLSX (Excel) spreadsheet to work with or share elsewhere.</li>
             </ol>
           </div>
+
 
           {errorMessage && (
             <div className="error-box">
