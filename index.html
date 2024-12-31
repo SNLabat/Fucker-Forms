@@ -15,9 +15,9 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
   <style>
-    /* ---------------------------
-       1) Base styling
-    ----------------------------*/
+    /* ---------------------------------
+       1) Base styling for both themes
+    ----------------------------------*/
     html, body {
       margin: 0;
       padding: 0;
@@ -119,9 +119,9 @@
       margin-top: 0;
     }
 
-    /* ---------------------------
-       2) Dark theme
-    ----------------------------*/
+    /* ---------------------------------
+       2) Dark theme 
+    ----------------------------------*/
     body.dark-mode {
       background-color: #1a1a1a;
       color: #ffffff;
@@ -180,9 +180,9 @@
       color: #fff;
     }
 
-    /* ---------------------------
+    /* ---------------------------------
        3) Windows 95 (Fucker 95) theme
-    ----------------------------*/
+    ----------------------------------*/
     body.win95-mode {
       background-color: #008080; /* teal reminiscent of Win95 wallpaper */
       color: #000;
@@ -262,7 +262,9 @@
 
   </style>
 </head>
-<body class="dark-mode"><!-- default theme is dark-mode -->
+
+<!-- default to "dark-mode" -->
+<body class="dark-mode">
   <div id="root"></div>
 
   <script type="text/babel">
@@ -278,11 +280,12 @@
       const [rowColors, setRowColors] = useState({});
       const [sortDirection, setSortDirection] = useState('asc');
       const [errorMessage, setErrorMessage] = useState('');
-      // new: theme state => "dark-mode" or "win95-mode"
-      const [theme, setTheme] = useState('dark-mode'); 
 
+      // New: theme state => "dark-mode" or "win95-mode"
+      const [theme, setTheme] = useState('dark-mode'); // default
+
+      // Apply theme to <body> class
       useEffect(() => {
-        // On theme change => set body class
         document.body.className = theme;
       }, [theme]);
 
@@ -303,7 +306,6 @@
       function showError(msg) {
         setErrorMessage(msg);
       }
-
       function clearError() {
         setErrorMessage('');
       }
@@ -335,7 +337,7 @@
         }
       }
 
-      // CSV parse with case-insensitive headers
+      // CSV parse w/ case-insensitive headers
       function parseCSVCaseInsensitive(file) {
         PapaLib.parse(file, {
           header: true,
@@ -450,7 +452,7 @@
 
       function handleContributedChange(uniqueKey, newVal) {
         if (!hasValidData) {
-          showError('No valid data loaded. Please upload a valid sheet with "amount" column.');
+          showError('No valid data loaded.');
           return;
         }
         try {
@@ -460,7 +462,7 @@
               const c = parseFloat(sanitizeNumberString(newVal)) || 0;
               const diff = c - amt;
               const updated = { ...row, contributed: newVal, difference: diff.toString() };
-              // If we have a manual color override in rowColors => use it
+              // check if we have a manual override in rowColors
               const manual = rowColors[uniqueKey];
               updated.rowColor = manual ? manual : computeAutoColor(updated);
               return updated;
@@ -472,32 +474,31 @@
         }
       }
 
-      /* The fix: if color === 'clear', we delete from rowColors so that future changes revert to auto color. */
+      /* The fix: "clear" => remove rowColors override, set rowColor = '' => next time, auto color */
       function handleRowColor(uniqueKey, color) {
         if (!hasValidData) {
           showError('No valid data loaded.');
           return;
         }
         try {
+          // remove or set override in rowColors
           setRowColors(prev => {
             const updated = { ...prev };
             if (color === 'clear') {
-              delete updated[uniqueKey];
+              delete updated[uniqueKey]; // remove override
             } else {
               updated[uniqueKey] = color;
             }
             return updated;
           });
 
+          // immediately set rowColor to '' or to color
           setData(prev => prev.map(row => {
             if (row._uniqueKey === uniqueKey) {
               if (color === 'clear') {
-                // Immediately recalc auto color
-                const auto = computeAutoColor(row);
-                return { ...row, rowColor: auto };
+                return { ...row, rowColor: '' }; 
               } else {
-                // Manual override
-                return { ...row, rowColor: color };
+                return { ...row, rowColor: color }; 
               }
             }
             return row;
@@ -572,7 +573,7 @@
 
       function handleSave() {
         if (!hasValidData || !filteredAndSortedData.length) {
-          showError('No valid data to save. Please upload a sheet with the "amount" column first.');
+          showError('No valid data to save.');
           return;
         }
         try {
@@ -587,9 +588,21 @@
             const colorName = row.rowColor || '';
             if (!colorName) return;
             const colorMap = {
-              green: { patternType: 'solid', fgColor: { rgb: '90EE90' }, bgColor: { rgb: '90EE90' } },
-              yellow: { patternType: 'solid', fgColor: { rgb: 'FFFFE0' }, bgColor: { rgb: 'FFFFE0' } },
-              red: { patternType: 'solid', fgColor: { rgb: 'FFB6B6' }, bgColor: { rgb: 'FFB6B6' } },
+              green: {
+                patternType: 'solid',
+                fgColor: { rgb: '90EE90' },
+                bgColor: { rgb: '90EE90' }
+              },
+              yellow: {
+                patternType: 'solid',
+                fgColor: { rgb: 'FFFFE0' },
+                bgColor: { rgb: 'FFFFE0' }
+              },
+              red: {
+                patternType: 'solid',
+                fgColor: { rgb: 'FFB6B6' },
+                bgColor: { rgb: 'FFB6B6' }
+              }
             };
             const style = colorMap[colorName];
             if (!style) return;
@@ -696,6 +709,7 @@
                   return (
                     <tr key={row._uniqueKey} className={highlightClass}>
                       <td>
+                        {/* Manual color overrides */}
                         <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
@@ -728,10 +742,13 @@
           <div className="instructions">
             <h2>Instructions:</h2>
             <ol>
-              <li>Choose a theme from the dropdown (Dark Mode or Fucker 95 Windows 95 look).</li>
-              <li>Upload the CSV or XLSX. Must have “amount” column (case-insensitive for CSV!).</li>
-              <li>Filter by action/description/amount, sort by amount, color rows, or type “contributed.”</li>
-              <li>If you “Clear” a row’s color, the next time you change “contributed,” it reverts to auto-color.</li>
+              <li>Choose a theme from the dropdown (Dark Mode or Fucker 95).</li>
+              <li>Upload the CSV/XLSX. Must have “amount” column (case-insensitive for CSV).</li>
+              <li>Filter by action/description/amount, sort by amount, color rows or type “contributed.”</li>
+              <li>
+                “Clear” forcibly removes the manual override so that the next time you update “contributed,” 
+                the color reverts to auto-calc. 
+              </li>
               <li>Click “Save Current View” to export an XLSX with color-coded rows.</li>
             </ol>
           </div>
