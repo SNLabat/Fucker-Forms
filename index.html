@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Fucker Forms</title>
+  <title>Large File Handling Example</title>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- React / ReactDOM -->
@@ -11,7 +11,7 @@
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
   <!-- PapaParse for CSV -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-  <!-- xlsx library -->
+  <!-- XLSX library -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
   <style>
@@ -140,7 +140,7 @@
       padding: 20px;
       border-radius: 8px;
       max-width: 700px;
-      word-wrap: break-word; /* wrap long error messages */
+      word-wrap: break-word;
     }
     .error-box h2 {
       margin-top: 0;
@@ -157,21 +157,19 @@
     const PapaLib = window.Papa;
 
     function App() {
+      // State that might hold partial or full rows
       const [data, setData] = useState([]);
       const [columns, setColumns] = useState([]);
       const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
       const [filters, setFilters] = useState({});
-      // Manual color overrides
       const [rowColors, setRowColors] = useState({});
       const [sortDirection, setSortDirection] = useState('asc');
-
-      // We'll store any error here and display it in the UI
       const [errorMessage, setErrorMessage] = useState('');
 
-      // We require "amount" column. If you need more, adapt checks below
+      // For demonstration, we require an "amount" column
       const REQUIRED_COLUMN = 'amount';
 
-      // Clears all data and columns
+      // Clears data
       function resetState() {
         setData([]);
         setColumns([]);
@@ -180,21 +178,20 @@
         setSortConfig({ key: null, direction: 'asc' });
       }
 
-      // True if we have the 'amount' column and at least 1 row
-      const hasValidData = columns.includes(REQUIRED_COLUMN) && data.length > 0;
+      // We consider data "valid" if it has the required column and at least 1 row
+      const hasValidData = useMemo(() => {
+        return columns.includes(REQUIRED_COLUMN) && data.length > 0;
+      }, [columns, data]);
 
-      // Safely set an error message
-      function showError(message) {
-        setErrorMessage(message);
+      function showError(msg) {
+        setErrorMessage(msg);
       }
-
-      // Clear error message
       function clearError() {
         setErrorMessage('');
       }
 
-      const handleFileUpload = (event) => {
-        const file = event.target.files[0];
+      function handleFileUpload(e) {
+        const file = e.target.files[0];
         if (!file) {
           showError('No file selected.');
           return;
@@ -203,322 +200,239 @@
         resetState();
         clearError();
 
+        // Depending on extension, parse differently
         try {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const content = e.target.result;
-
-            try {
-              if (file.name.endsWith('.csv')) {
-                parseCSV(content);
-              } else if (file.name.endsWith('.xlsx')) {
-                parseXLSX(content);
-              } else {
-                showError('Unsupported file type. Please upload a .csv or .xlsx file.');
-              }
-            } catch (parseErr) {
-              showError(`Error parsing file: ${parseErr.message}`);
-            }
-          };
-
-          // Read file
-          if (file.name.endsWith('.csv')) {
-            reader.readAsText(file);
+          if (file.name.toLowerCase().endsWith('.csv')) {
+            parseLargeCSV(file);
+          } else if (file.name.toLowerCase().endsWith('.xlsx')) {
+            parseXLSX(file);
           } else {
-            reader.readAsBinaryString(file);
+            showError('Unsupported file type. Please upload a .csv or .xlsx file.');
           }
         } catch (err) {
-          showError(`Failed to read file: ${err.message}`);
+          showError(`Error initializing parse: ${err.message}`);
         }
-      };
-
-      // -----------------------------------------
-      // HELPER FUNCTIONS from your snippet
-      // -----------------------------------------
-      // Normalizes a column name (lowercase, trimmed)
-      function normalizeColumnName(columnName) {
-        return columnName.toLowerCase().trim();
       }
 
-      // Finds the actual column name that matches the normalized target
-      function findActualColumnName(fields, normalizedTarget) {
-        return fields.find(field => normalizeColumnName(field) === normalizedTarget);
-      }
-
-      // Normalizes the data structure so that all columns use the original field name
-      // (Case-insensitive match, but we keep the original casing in the final object.)
-      function normalizeData(dataRows, originalFields) {
-        const normalizedToOriginal = {};
-
-        // Build a mapping from "normalized" => "original"
-        originalFields.forEach(field => {
-          const norm = normalizeColumnName(field);
-          normalizedToOriginal[norm] = field;
-        });
-
-        // Transform each row: if a key's normalized name is found, rename
-        return dataRows.map(row => {
-          const normalizedRow = {};
-          Object.entries(row).forEach(([key, value]) => {
-            const normalizedKey = normalizeColumnName(key);
-            // If we find a match in our mapping, we use that original key
-            const finalKey = normalizedToOriginal[normalizedKey] || key;
-            normalizedRow[finalKey] = value;
-          });
-          return normalizedRow;
-        });
-      }
-      // ------------------------------------------
-
-      // Updated parseCSV that uses your snippet's logic
-      function parseCSV(content) {
-        PapaLib.parse(content, {
+      // 1) Large CSV parsing approach: chunk
+      function parseLargeCSV(file) {
+        PapaLib.parse(file, {
           header: true,
-          complete: (results) => {
-            const parsedData = results.data;
-            const fields = results.meta.fields || [];
+          chunkSize: 1024 * 64, // 64KB chunk; you can adjust
+          chunk: (results, parser) => {
+            // results.data is the chunk of rows
+            // If your CSV is huge, you might only want to store partial or do aggregates
+            // For demonstration, we accumulate all in state (still might be big)
+            if (!results.data || results.data.length === 0) return;
 
-            if (!parsedData || parsedData.length === 0) {
-              showError("Error: CSV is empty. Please check your file.");
+            // If we haven't set columns yet, do so
+            if (columns.length === 0) {
+              const fields = results.meta.fields || [];
+              // Check for required column
+              if (!fields.includes(REQUIRED_COLUMN)) {
+                showError(`Error: Required column "${REQUIRED_COLUMN}" missing in CSV. Aborting parse.`);
+                parser.abort();
+                return;
+              }
+              // Make sure difference, contributed, rowColor exist
+              let newColumns = [...fields];
+              if (!newColumns.includes('difference')) newColumns.push('difference');
+              if (!newColumns.includes('contributed')) newColumns.push('contributed');
+              if (!newColumns.includes('rowColor')) newColumns.push('rowColor');
+              setColumns(newColumns);
+            }
+
+            // Build new chunk rows
+            const chunkRows = results.data.map((row, index) => {
+              const amt = parseFloat(sanitizeNumberString(row.amount)) || 0;
+              const contributed = parseFloat(sanitizeNumberString(row.contributed)) || 0;
+              const diff = contributed - amt;
+
+              return {
+                ...row,
+                _uniqueKey: `row-${Date.now()}-${Math.random()}-${index}`, // unique ID
+                contributed: row.contributed || '',
+                rowColor: row.rowColor || '',
+                difference: diff.toString(),
+              };
+            });
+
+            // Accumulate in our main data
+            setData(prev => [...prev, ...chunkRows]);
+          },
+          complete: () => {
+            console.log("Done chunking CSV!");
+          },
+          error: (err) => {
+            showError(`Papa Parse error: ${err.message}`);
+          }
+        });
+      }
+
+      // 2) XLSX parsing
+      function parseXLSX(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const content = e.target.result;
+            const workbook = XLSXLib.read(content, { type: 'binary' });
+            if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+              showError('This Excel file has no sheets.');
+              return;
+            }
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const jsonData = XLSXLib.utils.sheet_to_json(sheet);
+            if (!jsonData || jsonData.length === 0) {
+              showError('Excel sheet is empty.');
               return;
             }
 
-            // Check for required columns case-insensitively
-            const hasAmount = fields.some(field =>
-              normalizeColumnName(field) === 'amount'
-            );
-            if (!hasAmount) {
-              showError(
-                `Error: Required column "amount" is missing in CSV (case-insensitive). Please check your data.`
-              );
+            const baseCols = Object.keys(jsonData[0]);
+            if (!baseCols.includes(REQUIRED_COLUMN)) {
+              showError(`Required column "${REQUIRED_COLUMN}" missing in XLSX. Aborting parse.`);
               return;
             }
+            // Ensure difference, contributed, rowColor
+            let newColumns = [...baseCols];
+            if (!newColumns.includes('difference')) newColumns.push('difference');
+            if (!newColumns.includes('contributed')) newColumns.push('contributed');
+            if (!newColumns.includes('rowColor')) newColumns.push('rowColor');
 
-            // Find the actual column name for "amount"
-            const amountColumn = findActualColumnName(fields, 'amount');
-
-            // Normalize the data structure
-            const normalizedData = normalizeData(parsedData, fields);
-
-            // Build a desiredCols array from the original fields
-            const desiredCols = [...fields];
-            if (!desiredCols.includes('difference')) desiredCols.push('difference');
-            if (!desiredCols.includes('contributed')) desiredCols.push('contributed');
-            if (!desiredCols.includes('rowColor')) desiredCols.push('rowColor');
-
-            // Now create final rows
-            const rows = normalizedData.map((row, index) => {
-              const amountNum = parseFloat(sanitizeNumberString(row[amountColumn])) || 0;
-              const contribNum = parseFloat(sanitizeNumberString(row.contributed)) || 0;
-              const diff = contribNum - amountNum;
+            const rows = jsonData.map((row, index) => {
+              const amt = parseFloat(sanitizeNumberString(row.amount)) || 0;
+              const contributed = parseFloat(sanitizeNumberString(row.contributed)) || 0;
+              const diff = contributed - amt;
 
               return {
                 ...row,
                 _uniqueKey: `row-${Date.now()}-${index}`,
                 contributed: row.contributed || '',
                 rowColor: row.rowColor || '',
-                difference: diff.toString() // store as string for consistency
+                difference: diff.toString(),
               };
             });
 
             setData(rows);
-            setColumns(desiredCols);
-          },
-          error: (err) => {
-            showError(`PapaParse error: ${err.message}`);
+            setColumns(newColumns);
+          } catch (err) {
+            showError(`Error parsing XLSX: ${err.message}`);
           }
-        });
+        };
+        reader.readAsBinaryString(file);
       }
 
-      // Parse XLSX content
-      function parseXLSX(content) {
-        try {
-          const workbook = XLSXLib.read(content, { type: 'binary' });
-          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-            showError("Error: This Excel file has no sheets. Please check your file.");
-            return;
-          }
-
-          const sheetName = workbook.SheetNames[0];
-          const sheet = workbook.Sheets[sheetName];
-          const jsonData = XLSXLib.utils.sheet_to_json(sheet);
-
-          if (!jsonData || jsonData.length === 0) {
-            showError("Error: The first sheet of this Excel file is empty. Please check your file.");
-            return;
-          }
-
-          const baseCols = Object.keys(jsonData[0]);
-          if (!baseCols.includes(REQUIRED_COLUMN)) {
-            showError(`Error: Required column "${REQUIRED_COLUMN}" is missing in the Excel. Please check your data.`);
-            return;
-          }
-
-          // Ensure we have difference, contributed, rowColor
-          const desiredCols = [...baseCols];
-          if (!desiredCols.includes('difference')) {
-            desiredCols.push('difference');
-          }
-          if (!desiredCols.includes('contributed')) {
-            desiredCols.push('contributed');
-          }
-          if (!desiredCols.includes('rowColor')) {
-            desiredCols.push('rowColor');
-          }
-
-          const rows = jsonData.map((row, index) => {
-            const amountNum = parseFloat(sanitizeNumberString(row.amount)) || 0;
-            const contribNum = parseFloat(sanitizeNumberString(row.contributed)) || 0;
-            const diff = contribNum - amountNum;
-
-            return {
-              ...row,
-              _uniqueKey: `row-${Date.now()}-${index}`,
-              contributed: row.contributed || '',
-              rowColor: row.rowColor || '',
-              difference: diff.toString()
-            };
-          });
-
-          setData(rows);
-          setColumns(desiredCols);
-        } catch (err) {
-          showError(`Error reading XLSX: ${err.message}`);
-        }
-      }
-
-      // Strips commas, $, etc.
+      // Helps remove commas, $, etc.
       function sanitizeNumberString(val) {
         if (val === null || val === undefined) return '';
         const str = String(val);
         return str.replace(/[^\d.-]/g, '');
       }
 
-      // Automatic color logic
-      const computeAutoColor = (row) => {
+      // After we have rows, we can compute row color
+      function computeAutoColor(row) {
         try {
           if (!hasValidData) return '';
-          const amtStr = sanitizeNumberString(row.amount || '');
-          const contrStr = sanitizeNumberString(row.contributed || '');
-          if (!amtStr || !contrStr) return '';
-          const amount = parseFloat(amtStr) || 0;
-          const contributed = parseFloat(contrStr) || 0;
-          if (amount === 0 && contributed === 0) return '';
-          if (contributed > amount) return 'green';
-          if (contributed < amount / 2) return 'red';
+          const amt = parseFloat(sanitizeNumberString(row.amount || '')) || 0;
+          const contrib = parseFloat(sanitizeNumberString(row.contributed || '')) || 0;
+          if (amt === 0 && contrib === 0) return '';
+          if (contrib > amt) return 'green';
+          if (contrib < amt / 2) return 'red';
           return 'yellow';
         } catch (err) {
           showError(`Error computing color: ${err.message}`);
           return '';
         }
-      };
+      }
 
-      // This updates the row's contributed value and color
-      const handleContributedChange = (uniqueKey, newValue) => {
+      function handleContributedChange(uniqueKey, newValue) {
         if (!hasValidData) {
-          showError('No valid data loaded. Please upload a valid sheet with "amount" column.');
+          showError('No valid data. Please upload a valid sheet with "amount" column.');
           return;
         }
         try {
-          setData(prevData =>
-            prevData.map(row => {
-              if (row._uniqueKey === uniqueKey) {
-                const amountNum = parseFloat(sanitizeNumberString(row.amount)) || 0;
-                const contribNum = parseFloat(sanitizeNumberString(newValue)) || 0;
-                const diff = contribNum - amountNum;
+          setData(prev => prev.map(row => {
+            if (row._uniqueKey === uniqueKey) {
+              const amt = parseFloat(sanitizeNumberString(row.amount)) || 0;
+              const contrib = parseFloat(sanitizeNumberString(newValue)) || 0;
+              const diff = contrib - amt;
 
-                const updated = {
-                  ...row,
-                  contributed: newValue,
-                  difference: diff.toString()
-                };
+              const updated = {
+                ...row,
+                contributed: newValue,
+                difference: diff.toString(),
+              };
 
-                const manual = rowColors[uniqueKey];
-                const auto = computeAutoColor(updated);
-                updated.rowColor = manual || auto;
-                return updated;
-              }
-              return row;
-            })
-          );
+              // If rowColors override is empty, use auto color
+              const manual = rowColors[uniqueKey];
+              updated.rowColor = manual || computeAutoColor(updated);
+              return updated;
+            }
+            return row;
+          }));
         } catch (err) {
           showError(`Error updating contributed: ${err.message}`);
         }
-      };
+      }
 
-      // Manually override color
-      const handleRowColor = (uniqueKey, color) => {
+      function handleRowColor(uniqueKey, color) {
         if (!hasValidData) {
-          showError('No valid data loaded. Please upload a valid sheet with "amount" column.');
+          showError('No valid data loaded.');
           return;
         }
         try {
           setRowColors(prev => ({ ...prev, [uniqueKey]: color }));
-          setData(prevData =>
-            prevData.map(row => {
-              if (row._uniqueKey === uniqueKey) {
-                if (!color) {
-                  const auto = computeAutoColor(row);
-                  return { ...row, rowColor: auto };
-                }
-                return { ...row, rowColor: color };
+          setData(prev => prev.map(row => {
+            if (row._uniqueKey === uniqueKey) {
+              if (!color) {
+                // revert to auto
+                const auto = computeAutoColor(row);
+                return { ...row, rowColor: auto };
               }
-              return row;
-            })
-          );
+              return { ...row, rowColor: color };
+            }
+            return row;
+          }));
         } catch (err) {
           showError(`Error overriding color: ${err.message}`);
         }
-      };
+      }
 
-      // Filter logic
-      const handleFilter = (column, value) => {
-        try {
-          setFilters(prev => ({ ...prev, [column]: value }));
-        } catch (err) {
-          showError(`Error filtering data: ${err.message}`);
-        }
-      };
+      function handleFilter(column, value) {
+        setFilters(prev => ({ ...prev, [column]: value }));
+      }
 
-      // Sort logic
-      const handleAmountSort = () => {
+      // Sort by 'amount' column
+      function handleAmountSort() {
         if (!hasValidData) {
-          showError('No valid data loaded or missing "amount" column. Cannot sort.');
+          showError('No valid data to sort.');
           return;
         }
-        try {
-          setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
-          setSortConfig({ key: 'amount', direction: sortDirection });
-        } catch (err) {
-          showError(`Error sorting by amount: ${err.message}`);
-        }
-      };
+        setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+        setSortConfig({ key: 'amount', direction: sortDirection });
+      }
 
-      const handleSort = column => {
+      function handleSort(column) {
         if (!hasValidData) {
           showError('No valid data loaded. Cannot sort.');
           return;
         }
-        try {
-          if (sortConfig.key === column) {
-            setSortConfig({
-              key: column,
-              direction: sortConfig.direction === 'asc' ? 'desc' : 'asc'
-            });
-          } else {
-            setSortConfig({ key: column, direction: 'asc' });
-          }
-        } catch (err) {
-          showError(`Error sorting: ${err.message}`);
+        if (sortConfig.key === column) {
+          setSortConfig({
+            key: column,
+            direction: sortConfig.direction === 'asc' ? 'desc' : 'asc'
+          });
+        } else {
+          setSortConfig({ key: column, direction: 'asc' });
         }
-      };
+      }
 
-      // Derived data: apply filters & sorting
       const filteredAndSortedData = useMemo(() => {
         if (!hasValidData) return [];
 
         try {
           let processed = [...data];
+          // filter
           Object.keys(filters).forEach(col => {
             const val = (filters[col] || '').toLowerCase();
             if (val) {
@@ -528,6 +442,7 @@
             }
           });
 
+          // sort by amount
           if (sortConfig.key === 'amount') {
             processed.sort((a, b) => {
               const aVal = parseFloat(sanitizeNumberString(a.amount || '')) || 0;
@@ -552,26 +467,25 @@
         return buf;
       }
 
-      const handleSave = () => {
+      function handleSave() {
         if (!hasValidData || !filteredAndSortedData.length) {
-          showError('No valid data to save. Please upload a sheet with the "amount" column and try again.');
+          showError('No valid data to save. Upload a valid sheet with "amount" column first.');
           return;
         }
         try {
           const dataToSave = filteredAndSortedData.map(row => {
             const newRow = { ...row };
-            delete newRow._uniqueKey;
+            delete newRow._uniqueKey; // remove internal key
             return newRow;
           });
 
           const wb = XLSXLib.utils.book_new();
           const ws = XLSXLib.utils.json_to_sheet(dataToSave);
 
-          // Color-styling each row
+          // apply color styling
           filteredAndSortedData.forEach((row, idx) => {
             const colorName = row.rowColor || '';
             if (!colorName) return;
-
             const colorMap = {
               green: {
                 patternType: 'solid',
@@ -607,22 +521,15 @@
             });
           });
 
-          // Adjust column widths
+          // column widths
           const colWidths = columns.map(col => ({
             wch: col === 'contributed' ? 15 : Math.max(col.length, 10)
           }));
           ws['!cols'] = colWidths;
 
           XLSXLib.utils.book_append_sheet(wb, ws, 'Sheet1');
+          const wbout = XLSXLib.write(wb, { bookType: 'xlsx', type: 'binary', cellStyles: true });
 
-          // Use XLSXLib.write(...) (NOT XLSXLib.utils.write)
-          const wbout = XLSXLib.write(wb, {
-            bookType: 'xlsx',
-            type: 'binary',
-            cellStyles: true
-          });
-
-          // Convert to blob and download
           const blob = new Blob([s2ab(wbout)], { type: 'application/octet-stream' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
@@ -633,7 +540,7 @@
         } catch (err) {
           showError(`Error preparing file for save: ${err.message}`);
         }
-      };
+      }
 
       return (
         <div className="container">
@@ -650,6 +557,7 @@
 
           <div className="filters-and-sort">
             <div className="filters">
+              {/* Example filter columns. Adjust as needed. */}
               {['action', 'description', 'done_at', 'amount', 'difference'].map(col => (
                 columns.includes(col) && (
                   <div key={col}>
@@ -697,6 +605,7 @@
                   return (
                     <tr key={row._uniqueKey} className={highlightClass}>
                       <td>
+                        {/* Manual color overrides */}
                         <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
@@ -735,18 +644,33 @@
 
           {/* Instructions Section */}
           <div className="instructions">
-            <h2>Instructions:</h2>
+            <h2>Instructions (Large CSV / XLSX):</h2>
             <ol>
-              <li>Upload the CSV exported from the PD account.</li>
-              <li>You can filter by action, description, or amount. You will more than likely want to filter by "salary" in descriptions.</li>
-              <li>Once filtered, you can hit "Sort Amount" to sort the sheet by highest to lowest or lowest to highest.</li>
-              <li>You can either manually mark a row or input the amount "contributed" and it will auto-calculate the color based on the amount.</li>
-              <li>A “difference” column shows <code>(contributed - amount)</code>. It updates automatically when you type in a new contributed value.</li>
-              <li>Once finished, click "Save Current View" and it will export your work to an XLSX (Excel) spreadsheet to work with or share elsewhere.</li>
+              <li>
+                Upload a large <code>.csv</code> (chunked) or <code>.xlsx</code> (all at once).
+              </li>
+              <li>
+                For CSV, Papa Parse processes it in chunks. Each chunk is appended to the table in real time.
+              </li>
+              <li>
+                You can filter by columns (like <code>amount</code> or <code>description</code>) 
+                or sort by <code>amount</code>.
+              </li>
+              <li>
+                The row color changes automatically if <code>contributed &lt; amount / 2</code> 
+                (red), <code>contributed &gt; amount</code> (green), or otherwise (yellow).
+              </li>
+              <li>
+                Manually override any row color with the buttons (Green/Yellow/Red/Auto).
+              </li>
+              <li>
+                When finished, click <strong>Save Current View</strong> to export as <code>.xlsx</code> 
+                with all your color-coding and columns (<code>difference</code>, etc.).
+              </li>
             </ol>
           </div>
 
-          {/* Error Message Section (only visible if errorMessage is non-empty) */}
+          {/* Error Message Section */}
           {errorMessage && (
             <div className="error-box">
               <h2>Error</h2>
