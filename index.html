@@ -77,9 +77,11 @@
     }
     .header-controls {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
+      gap: 10px;
       margin-bottom: 20px;
+      flex-wrap: wrap;
     }
     .save-button {
       padding: 10px 20px;
@@ -120,7 +122,7 @@
     }
 
     /* ---------------------------------
-       2) Dark theme 
+       2) Dark theme
     ----------------------------------*/
     body.dark-mode {
       background-color: #1a1a1a;
@@ -188,11 +190,11 @@
       color: #000;
     }
     .win95-mode .container {
-      background-color: #C3C7CB; 
-      border: 2px solid #FFFFFF; 
-      border-right: 2px solid #808080; 
-      border-bottom: 2px solid #808080; 
-      border-radius: 0; 
+      background-color: #C3C7CB;
+      border: 2px solid #FFFFFF;
+      border-right: 2px solid #808080;
+      border-bottom: 2px solid #808080;
+      border-radius: 0;
     }
     .win95-mode .table-container {
       background-color: #C3C7CB;
@@ -259,7 +261,6 @@
       border-top-color: #FFFFFF;
       border-left-color: #FFFFFF;
     }
-
   </style>
 </head>
 
@@ -267,11 +268,11 @@
 <body class="dark-mode">
   <div id="root"></div>
 
+  <!-- BEGIN REACT SCRIPT -->
   <script type="text/babel">
     const { useState, useMemo, useEffect } = React;
     const XLSXLib = window.XLSX;
     const PapaLib = window.Papa;
-
     function App() {
       const [data, setData] = useState([]);
       const [columns, setColumns] = useState([]);
@@ -283,6 +284,24 @@
 
       // New: theme state => "dark-mode" or "win95-mode"
       const [theme, setTheme] = useState('dark-mode'); // default
+
+      // On initial mount, try loading from localStorage
+      useEffect(() => {
+        const savedState = localStorage.getItem('fuckerFormsState');
+        if (savedState) {
+          try {
+            const parsed = JSON.parse(savedState);
+            if (parsed.data && Array.isArray(parsed.data)) setData(parsed.data);
+            if (parsed.columns && Array.isArray(parsed.columns)) setColumns(parsed.columns);
+            if (parsed.rowColors && typeof parsed.rowColors === 'object') setRowColors(parsed.rowColors);
+            if (parsed.sortConfig && typeof parsed.sortConfig === 'object') setSortConfig(parsed.sortConfig);
+            if (parsed.filters && typeof parsed.filters === 'object') setFilters(parsed.filters);
+            if (parsed.theme) setTheme(parsed.theme);
+          } catch (err) {
+            console.error('Error reading local storage:', err);
+          }
+        }
+      }, []);
 
       // Apply theme to <body> class
       useEffect(() => {
@@ -496,9 +515,9 @@
           setData(prev => prev.map(row => {
             if (row._uniqueKey === uniqueKey) {
               if (color === 'clear') {
-                return { ...row, rowColor: '' }; 
+                return { ...row, rowColor: '' };
               } else {
-                return { ...row, rowColor: color }; 
+                return { ...row, rowColor: color };
               }
             }
             return row;
@@ -571,7 +590,7 @@
         return buf;
       }
 
-      function handleSave() {
+      function handleSaveFile() {
         if (!hasValidData || !filteredAndSortedData.length) {
           showError('No valid data to save.');
           return;
@@ -638,6 +657,30 @@
         }
       }
 
+      // Store entire app state in localStorage
+      function handleSaveSession() {
+        try {
+          const stateToSave = {
+            data,
+            columns,
+            rowColors,
+            sortConfig,
+            filters,
+            theme
+          };
+          localStorage.setItem('fuckerFormsState', JSON.stringify(stateToSave));
+          alert('Your session has been saved. You can come back to this page later and resume.');
+        } catch (err) {
+          showError(`Error saving session: ${err.message}`);
+        }
+      }
+
+      // Optional: allow clearing local storage
+      function handleClearSession() {
+        localStorage.removeItem('fuckerFormsState');
+        alert('Session cleared from local storage. Reload the page to start fresh.');
+      }
+
       return (
         <div className="container">
           {/* Theme dropdown */}
@@ -651,12 +694,21 @@
 
           <div className="header-controls">
             <input type="file" accept=".csv,.xlsx" onChange={handleFileUpload} />
+
             <button
               className="save-button"
-              onClick={handleSave}
+              onClick={handleSaveFile}
               disabled={!hasValidData}
             >
               Save Current View
+            </button>
+
+            {/* New buttons for local storage */}
+            <button onClick={handleSaveSession}>
+              Save Session (Local)
+            </button>
+            <button onClick={handleClearSession}>
+              Clear Local Session
             </button>
           </div>
 
@@ -739,20 +791,21 @@
             </table>
           </div>
 
-    {/* Instructions Section */}
+          {/* Instructions Section */}
           <div className="instructions">
             <h2>Fucker Forms User Manual:</h2>
             <ol>
               <li>Upload the CSV exported from the PD account.</li>
-              <li>You can filter by action, description, or amount. You will more than likely want to filter by "salary" in descriptions.</li>
-              <li>Once filtered, you can hit "Sort Amount" to sort the sheet by highest to lowest or lowest to highest.</li>
-              <li>You can either manually mark a row or input the amount "contributed" and it will auto-calculate the color based on the amount.</li>
-              <li>A “difference” column shows <code>(contributed - amount)</code>. It updates automatically when you type in a new contributed value.</li>
-              <li>Once finished, click "Save Current View" and it will export your work to an XLSX (Excel) spreadsheet to work with or share elsewhere.</li>
-              <li>Don't like the way things look? Try a different theme!</li>
+              <li>Filter by action, description, or amount. For example, filter “salary” in descriptions.</li>
+              <li>Click "Sort Amount" to reorder by ascending or descending amounts.</li>
+              <li>Either manually mark a row color, or enter the amount "contributed" to auto-calculate color relative to the amount.</li>
+              <li>“difference” column is <code>(contributed - amount)</code> and updates in real-time.</li>
+              <li>Once finished, click "Save Current View" to export an XLSX (Excel) file.</li>
+              <li>Try a different theme if you prefer a different look!</li>
+              <li>**New**: Use “Save Session (Local)” to store your progress in the browser.  
+                If you come back later (same browser & device), the data will be reloaded automatically.</li>
             </ol>
           </div>
-
 
           {errorMessage && (
             <div className="error-box">
@@ -766,5 +819,8 @@
 
     ReactDOM.render(<App />, document.getElementById('root'));
   </script>
+  <!-- END REACT SCRIPT -->
 </body>
 </html>
+
+
