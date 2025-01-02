@@ -452,7 +452,7 @@
             showError('Unsupported file type. Please upload a .csv or .xlsx file.');
           }
         } catch (err) {
-          showError(Error loading file: ${err.message});
+          showError(`Error loading file: ${err.message}`);
         }
       }
 
@@ -469,7 +469,7 @@
               return;
             }
             if (!fields.includes(REQUIRED_COLUMN)) {
-              showError(Error: Required column "${REQUIRED_COLUMN}" is missing in CSV (case-insensitive).);
+              showError(`Error: Required column "${REQUIRED_COLUMN}" is missing in CSV (case-insensitive).`);
               return;
             }
             let newCols = [...fields];
@@ -483,7 +483,7 @@
               const diff = contrib - amt;
               return {
                 ...row,
-                _uniqueKey: row-${Date.now()}-${index},
+                _uniqueKey: `row-${Date.now()}-${index}`,
                 contributed: row.contributed || '',
                 rowColor: row.rowColor || '',
                 difference: diff.toString(),
@@ -493,7 +493,7 @@
             setColumns(newCols);
           },
           error: (err) => {
-            showError(Papa Parse error: ${err.message});
+            showError(`Papa Parse error: ${err.message}`);
           }
         });
       }
@@ -519,7 +519,7 @@
             let headers = jsonData[0].map(h => String(h || '').toLowerCase().trim());
             const rowsArr = jsonData.slice(1);
             if (!headers.includes(REQUIRED_COLUMN)) {
-              showError(Error: Required column "${REQUIRED_COLUMN}" missing in XLSX (case-insensitive).);
+              showError(`Error: Required column "${REQUIRED_COLUMN}" missing in XLSX (case-insensitive).`);
               return;
             }
             if (!headers.includes('difference')) headers.push('difference');
@@ -535,7 +535,7 @@
               const contrib = parseFloat(sanitizeNumberString(rowObj.contributed)) || 0;
               const diff = contrib - amt;
               rowObj.difference = diff.toString();
-              rowObj._uniqueKey = row-${Date.now()}-${rowIndex};
+              rowObj._uniqueKey = `row-${Date.now()}-${rowIndex}`;
               rowObj.contributed = rowObj.contributed || '';
               rowObj.rowColor = rowObj.rowColor || '';
               return rowObj;
@@ -543,7 +543,7 @@
             setData(rowObjects);
             setColumns(headers);
           } catch (err) {
-            showError(Error parsing XLSX: ${err.message});
+            showError(`Error parsing XLSX: ${err.message}`);
           }
         };
         reader.readAsBinaryString(file);
@@ -565,7 +565,7 @@
           if (contrib < amt / 2) return 'red';
           return 'yellow';
         } catch (err) {
-          showError(Error computing color: ${err.message});
+          showError(`Error computing color: ${err.message}`);
           return '';
         }
       }
@@ -590,7 +590,7 @@
             return row;
           }));
         } catch (err) {
-          showError(Error updating contributed: ${err.message});
+          showError(`Error updating contributed: ${err.message}`);
         }
       }
 
@@ -621,7 +621,7 @@
             return row;
           }));
         } catch (err) {
-          showError(Error overriding color: ${err.message});
+          showError(`Error overriding color: ${err.message}`);
         }
       }
 
@@ -684,7 +684,7 @@
 
           return processed;
         } catch (err) {
-          showError(Error processing data: ${err.message});
+          showError(`Error processing data: ${err.message}`);
           return [];
         }
       }, [data, filters, sortConfig, hasValidData]);
@@ -767,7 +767,7 @@
           a.click();
           URL.revokeObjectURL(url);
         } catch (err) {
-          showError(Error exporting file: ${err.message});
+          showError(`Error exporting file: ${err.message}`);
         }
       }
 
@@ -785,7 +785,7 @@
           localStorage.setItem('fuckerFormsState', JSON.stringify(stateToSave));
           alert('Your session has been saved. You can come back later to resume.');
         } catch (err) {
-          showError(Error saving session: ${err.message});
+          showError(`Error saving session: ${err.message}`);
         }
       }
 
@@ -835,7 +835,7 @@
                     <input
                       type="text"
                       onChange={e => handleFilter(col, e.target.value)}
-                      placeholder={Multi-word search ${col}...}
+                      placeholder={`Multi-word search ${col}...`}
                       disabled={!hasValidData}
                     />
                   </div>
@@ -871,7 +871,7 @@
               </thead>
               <tbody>
                 {filteredAndSortedData.map(row => {
-                  const highlightClass = row.rowColor ? row-${row.rowColor} : '';
+                  const highlightClass = row.rowColor ? `row-${row.rowColor}` : '';
                   return (
                     <tr key={row._uniqueKey} className={highlightClass}>
                       <td>
@@ -933,4 +933,3 @@
   </script>
 </body>
 </html>
-
