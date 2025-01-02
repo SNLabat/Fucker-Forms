@@ -1,6 +1,6 @@
 # Fucker Forms (https://fuckerforms.com)
 
-v1.0 Changelog
+v1.0 Changelog (Note: Site may be in active development while you're using it, if you run into errors please let me know).
 
 1) Upload spreadsheets. They can be either CSV or XLSX with a 2MB upload limit until this can better handle large documents. 
 2) You can search/filter by specific fields. Most often you'll want to search by what's in the "description field".
