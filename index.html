@@ -131,7 +131,7 @@
     }
 
     /* ---------------------------------
-       2) Dark theme 
+       2) Dark theme
     ----------------------------------*/
     body.dark-mode {
       background-color: #1a1a1a;
@@ -276,7 +276,7 @@
 <!-- default to "dark-mode" -->
 <body class="dark-mode">
   <!-- The top-right logo. Adjust path if needed. -->
-  <img 
+  <img
     class="logo-top-right"
     src="./Fucker95.png"
     alt="Fucker 95 Logo"
@@ -297,17 +297,40 @@
       const [rowColors, setRowColors] = useState({});
       const [sortDirection, setSortDirection] = useState('asc');
       const [errorMessage, setErrorMessage] = useState('');
-      const [theme, setTheme] = useState('dark-mode'); // default theme
+      const [theme, setTheme] = useState('dark-mode'); // default
 
-      const REQUIRED_COLUMN = 'amount';
+      // On initial mount, try loading from localStorage
+      useEffect(() => {
+        const savedState = localStorage.getItem('fuckerFormsState');
+        if (savedState) {
+          try {
+            const parsed = JSON.parse(savedState);
+            if (parsed.data && Array.isArray(parsed.data)) setData(parsed.data);
+            if (parsed.columns && Array.isArray(parsed.columns)) setColumns(parsed.columns);
+            if (parsed.rowColors && typeof parsed.rowColors === 'object') setRowColors(parsed.rowColors);
+            if (parsed.sortConfig && typeof parsed.sortConfig === 'object') setSortConfig(parsed.sortConfig);
+            if (parsed.filters && typeof parsed.filters === 'object') setFilters(parsed.filters);
+            if (parsed.theme) setTheme(parsed.theme);
+          } catch (err) {
+            console.error('Error reading local storage:', err);
+          }
+        }
+      }, []);
 
-      // If you had local storage logic, place it here if needed
-      // For brevity, we omit local storage from this snippet
-
-      // Apply theme to <body> class
+      // Apply theme
       useEffect(() => {
         document.body.className = theme;
       }, [theme]);
+
+      const REQUIRED_COLUMN = 'amount';
+
+      function resetState() {
+        setData([]);
+        setColumns([]);
+        setRowColors({});
+        setFilters({});
+        setSortConfig({ key: null, direction: 'asc' });
+      }
 
       const hasValidData = useMemo(() => {
         return columns.includes(REQUIRED_COLUMN) && data.length > 0;
@@ -316,7 +339,6 @@
       function showError(msg) {
         setErrorMessage(msg);
       }
-
       function clearError() {
         setErrorMessage('');
       }
@@ -331,12 +353,7 @@
           showError('No file selected.');
           return;
         }
-        // reset
-        setData([]);
-        setColumns([]);
-        setRowColors({});
-        setFilters({});
-        setSortConfig({ key: null, direction: 'asc' });
+        resetState();
         clearError();
 
         try {
@@ -353,6 +370,7 @@
         }
       }
 
+      // CSV parse (case-insensitive headers)
       function parseCSVCaseInsensitive(file) {
         PapaLib.parse(file, {
           header: true,
@@ -394,6 +412,7 @@
         });
       }
 
+      // XLSX parse
       function parseXLSX(file) {
         const reader = new FileReader();
         reader.onload = (evt) => {
@@ -476,6 +495,7 @@
               const c = parseFloat(sanitizeNumberString(newVal)) || 0;
               const diff = c - amt;
               const updated = { ...row, contributed: newVal, difference: diff.toString() };
+              // check if we have a manual override in rowColors
               const manual = rowColors[uniqueKey];
               updated.rowColor = manual ? manual : computeAutoColor(updated);
               return updated;
@@ -546,7 +566,7 @@
         }
       }
 
-      // *** Updated multi-word search logic (case-insensitive, all terms must match) ***
+      // Enhanced multi-word search, case-insensitive
       const filteredAndSortedData = useMemo(() => {
         if (!hasValidData) return [];
         try {
@@ -554,15 +574,13 @@
 
           Object.keys(filters).forEach(col => {
             const filterVal = (filters[col] || '').trim().toLowerCase();
-            if (!filterVal) return; // skip empty filters
+            if (!filterVal) return;
 
-            // split by whitespace to get multiple terms
-            const terms = filterVal.split(/\s+/).filter(t => t); // remove empties
+            const terms = filterVal.split(/\s+/).filter(t => t); // remove empty terms
 
             processed = processed.filter(row => {
-              const cellValue = String(row[col] || '').toLowerCase();
-              // check if *all* terms are found
-              return terms.every(term => cellValue.includes(term));
+              const cellVal = String(row[col] || '').toLowerCase();
+              return terms.every(term => cellVal.includes(term));
             });
           });
 
@@ -573,7 +591,6 @@
               return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
             });
           }
-
           return processed;
         } catch (err) {
           showError(`Error processing data: ${err.message}`);
@@ -581,7 +598,15 @@
         }
       }, [data, filters, sortConfig, hasValidData]);
 
-      // Export to XLSX
+      function s2ab(s) {
+        const buf = new ArrayBuffer(s.length);
+        const view = new Uint8Array(buf);
+        for (let i = 0; i < s.length; i++) {
+          view[i] = s.charCodeAt(i) & 0xFF;
+        }
+        return buf;
+      }
+
       function handleExportXLSX() {
         if (!hasValidData || !filteredAndSortedData.length) {
           showError('No valid data to export.');
@@ -649,17 +674,32 @@
           a.click();
           URL.revokeObjectURL(url);
         } catch (err) {
-          showError(`Error preparing file for export: ${err.message}`);
+          showError(`Error exporting file: ${err.message}`);
         }
       }
 
-      function s2ab(s) {
-        const buf = new ArrayBuffer(s.length);
-        const view = new Uint8Array(buf);
-        for (let i = 0; i < s.length; i++) {
-          view[i] = s.charCodeAt(i) & 0xFF;
+      // Save entire app state to localStorage
+      function handleSaveSession() {
+        try {
+          const stateToSave = {
+            data,
+            columns,
+            rowColors,
+            sortConfig,
+            filters,
+            theme
+          };
+          localStorage.setItem('fuckerFormsState', JSON.stringify(stateToSave));
+          alert('Your session has been saved. You can come back to this page later and resume.');
+        } catch (err) {
+          showError(`Error saving session: ${err.message}`);
         }
-        return buf;
+      }
+
+      // Clear local storage
+      function handleClearSession() {
+        localStorage.removeItem('fuckerFormsState');
+        alert('Session cleared from local storage. Reload page to start fresh.');
       }
 
       return (
@@ -675,12 +715,20 @@
 
           <div className="header-controls">
             <input type="file" accept=".csv,.xlsx" onChange={handleFileUpload} />
+            
             <button
               className="save-button"
               onClick={handleExportXLSX}
               disabled={!hasValidData}
             >
               Export Your Work
+            </button>
+
+            <button onClick={handleSaveSession}>
+              Save Session (Local)
+            </button>
+            <button onClick={handleClearSession}>
+              Reset Local Session
             </button>
           </div>
 
@@ -733,7 +781,6 @@
                   return (
                     <tr key={row._uniqueKey} className={highlightClass}>
                       <td>
-                        {/* Manual color overrides */}
                         <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
                         <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
@@ -763,7 +810,7 @@
             </table>
           </div>
 
-    {/* Instructions Section */}
+         {/* Instructions Section */}
           <div className="instructions">
             <h2>Fucker Forms User Manual:</h2>
             <ol>
