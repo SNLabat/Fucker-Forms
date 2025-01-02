@@ -811,8 +811,18 @@
             done_at: new Date().toISOString().split('T')[0]
           };
           
-          // Ensure we're properly updating the state with the new row
-          setData(prevData => [...prevData, summaryRow]);
+          // Find the index of the last docked row
+          const lastDockedIndex = Math.max(...dockedRows.map(id => 
+            data.findIndex(r => r._uniqueKey === id)
+          ));
+          
+          // Insert the summary row after the last docked row
+          setData(prevData => [
+            ...prevData.slice(0, lastDockedIndex + 1),
+            summaryRow,
+            ...prevData.slice(lastDockedIndex + 1)
+          ]);
+          
           setDockedRows([]); // Clear docked rows
         } else {
           // First click - dock the row
