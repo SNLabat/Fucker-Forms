@@ -4,6 +4,7 @@
   <title>Fucker Forms</title>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <!-- React / ReactDOM -->
   <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
@@ -15,9 +16,9 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
   <style>
-    /* ---------------------------------
+    /* -------------------------------------------------------
        1) Base styling for both themes
-    ----------------------------------*/
+       ------------------------------------------------------- */
     html, body {
       margin: 0;
       padding: 0;
@@ -51,7 +52,7 @@
       cursor: pointer;
       text-align: left;
     }
-    /* color-coded row classes */
+    /* Color-coded row classes */
     .row-green {
       background-color: rgba(144, 238, 144, 0.2);
     }
@@ -130,9 +131,9 @@
       z-index: 999;
     }
 
-    /* ---------------------------------
+    /* -------------------------------------------------------
        2) Dark theme
-    ----------------------------------*/
+       ------------------------------------------------------- */
     body.dark-mode {
       background-color: #1a1a1a;
       color: #ffffff;
@@ -191,9 +192,9 @@
       color: #fff;
     }
 
-    /* ---------------------------------
+    /* -------------------------------------------------------
        3) Windows 95 (Fucker 95) theme
-    ----------------------------------*/
+       ------------------------------------------------------- */
     body.win95-mode {
       background-color: #008080; /* teal reminiscent of Win95 wallpaper */
       color: #000;
@@ -270,10 +271,91 @@
       border-top-color: #FFFFFF;
       border-left-color: #FFFFFF;
     }
+
+    /* -------------------------------------------------------
+       4) Pip-Boy (Fucker-Boy 3000) theme
+       ------------------------------------------------------- */
+    body.pipboy-mode {
+      background-color: #000000;
+      color: #2ed058;
+      font-family: 'Courier New', monospace;
+    }
+    .pipboy-mode .container {
+      background-color: #000000;
+      border: 2px solid #2ed058;
+      color: #2ed058;
+    }
+    .pipboy-mode .table-container {
+      background-color: #000000;
+      border: 1px solid #2ed058;
+    }
+    .pipboy-mode table {
+      background-color: #000000;
+    }
+    .pipboy-mode th {
+      background-color: #0a280f;
+      color: #2ed058;
+      border: 1px solid #2ed058;
+    }
+    .pipboy-mode td {
+      border-bottom: 1px solid #2ed058;
+    }
+    .pipboy-mode input[type="file"],
+    .pipboy-mode input[type="text"],
+    .pipboy-mode input[type="number"],
+    .pipboy-mode select {
+      background-color: #000000;
+      color: #2ed058;
+      border: 1px solid #2ed058;
+      font-family: 'Courier New', monospace;
+    }
+    .pipboy-mode button {
+      background-color: #0a280f;
+      color: #2ed058;
+      border: 1px solid #2ed058;
+      font-family: 'Courier New', monospace;
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+    .pipboy-mode button:hover {
+      background-color: #2ed058;
+      color: #000000;
+    }
+    .pipboy-mode .save-button {
+      background-color: #0a280f;
+      color: #2ed058;
+    }
+    .pipboy-mode .save-button:hover {
+      background-color: #2ed058;
+      color: #000000;
+    }
+    .pipboy-mode .save-button:disabled {
+      background-color: #0a280f;
+      color: #184726;
+      border-color: #184726;
+    }
+    .pipboy-mode .instructions {
+      background-color: #0a280f;
+      color: #2ed058;
+      border: 1px solid #2ed058;
+    }
+    .pipboy-mode .error-box {
+      background-color: #280a0a;
+      color: #2ed058;
+      border: 1px solid #2ed058;
+    }
+    .pipboy-mode .row-green {
+      background-color: rgba(46, 208, 88, 0.2);
+    }
+    .pipboy-mode .row-yellow {
+      background-color: rgba(208, 208, 46, 0.2);
+    }
+    .pipboy-mode .row-red {
+      background-color: rgba(208, 46, 46, 0.2);
+    }
   </style>
 </head>
 
-<!-- default to "dark-mode" -->
 <body class="dark-mode">
   <!-- The top-right logo. Adjust path if needed. -->
   <img
@@ -285,11 +367,13 @@
   <div id="root"></div>
 
   <script type="text/babel">
+    // Using React Hooks
     const { useState, useMemo, useEffect } = React;
     const XLSXLib = window.XLSX;
     const PapaLib = window.Papa;
 
     function App() {
+      // State declarations
       const [data, setData] = useState([]);
       const [columns, setColumns] = useState([]);
       const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
@@ -297,7 +381,8 @@
       const [rowColors, setRowColors] = useState({});
       const [sortDirection, setSortDirection] = useState('asc');
       const [errorMessage, setErrorMessage] = useState('');
-      const [theme, setTheme] = useState('dark-mode'); // default
+      // Default theme
+      const [theme, setTheme] = useState('dark-mode');
 
       // On initial mount, try loading from localStorage
       useEffect(() => {
@@ -317,7 +402,7 @@
         }
       }, []);
 
-      // Apply theme
+      // Apply theme whenever it changes
       useEffect(() => {
         document.body.className = theme;
       }, [theme]);
@@ -347,6 +432,7 @@
         setTheme(e.target.value);
       }
 
+      // Handle file upload
       function handleFileUpload(e) {
         const file = e.target.files[0];
         if (!file) {
@@ -468,6 +554,7 @@
         return String(val).replace(/[^\d.-]/g, '');
       }
 
+      // Compute color automatically based on amounts
       function computeAutoColor(row) {
         try {
           if (!hasValidData) return '';
@@ -495,7 +582,7 @@
               const c = parseFloat(sanitizeNumberString(newVal)) || 0;
               const diff = c - amt;
               const updated = { ...row, contributed: newVal, difference: diff.toString() };
-              // check if we have a manual override in rowColors
+              // Check if we have a manual override in rowColors
               const manual = rowColors[uniqueKey];
               updated.rowColor = manual ? manual : computeAutoColor(updated);
               return updated;
@@ -542,6 +629,7 @@
         setFilters(prev => ({ ...prev, [column]: value }));
       }
 
+      // Sort by amount specifically
       function handleAmountSort() {
         if (!hasValidData) {
           showError('No valid data to sort.');
@@ -551,6 +639,7 @@
         setSortConfig({ key: 'amount', direction: sortDirection });
       }
 
+      // General sort for any column
       function handleSort(col) {
         if (!hasValidData) {
           showError('No valid data loaded. Cannot sort.');
@@ -566,24 +655,25 @@
         }
       }
 
-      // Enhanced multi-word search, case-insensitive
+      // Filter + sort
       const filteredAndSortedData = useMemo(() => {
         if (!hasValidData) return [];
         try {
           let processed = [...data];
 
+          // Multi-word filters
           Object.keys(filters).forEach(col => {
             const filterVal = (filters[col] || '').trim().toLowerCase();
             if (!filterVal) return;
 
-            const terms = filterVal.split(/\s+/).filter(t => t); // remove empty terms
-
+            const terms = filterVal.split(/\s+/).filter(t => t);
             processed = processed.filter(row => {
               const cellVal = String(row[col] || '').toLowerCase();
               return terms.every(term => cellVal.includes(term));
             });
           });
 
+          // If the sorting key is "amount", handle numeric sorting
           if (sortConfig.key === 'amount') {
             processed.sort((a, b) => {
               const aVal = parseFloat(sanitizeNumberString(a.amount || '')) || 0;
@@ -591,6 +681,7 @@
               return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
             });
           }
+
           return processed;
         } catch (err) {
           showError(`Error processing data: ${err.message}`);
@@ -607,6 +698,7 @@
         return buf;
       }
 
+      // Export XLSX
       function handleExportXLSX() {
         if (!hasValidData || !filteredAndSortedData.length) {
           showError('No valid data to export.');
@@ -621,6 +713,7 @@
           const wb = XLSXLib.utils.book_new();
           const ws = XLSXLib.utils.json_to_sheet(dataToSave);
 
+          // Color highlight in the XLSX
           filteredAndSortedData.forEach((row, idx) => {
             const colorName = row.rowColor || '';
             if (!colorName) return;
@@ -690,7 +783,7 @@
             theme
           };
           localStorage.setItem('fuckerFormsState', JSON.stringify(stateToSave));
-          alert('Your session has been saved. You can come back to this page later and resume.');
+          alert('Your session has been saved. You can come back later to resume.');
         } catch (err) {
           showError(`Error saving session: ${err.message}`);
         }
@@ -704,12 +797,13 @@
 
       return (
         <div className="container">
-          {/* Theme dropdown */}
+          {/* Theme Dropdown */}
           <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <label style={{ marginRight: '8px' }}>Theme:</label>
             <select value={theme} onChange={handleThemeChange}>
               <option value="dark-mode">Dark Mode</option>
               <option value="win95-mode">Fucker 95</option>
+              <option value="pipboy-mode">Fucker-Boy 3000</option>
             </select>
           </div>
 
@@ -810,7 +904,7 @@
             </table>
           </div>
 
-         {/* Instructions Section */}
+          {/* Instructions Section */}
           <div className="instructions">
             <h2>Fucker Forms User Manual:</h2>
             <ol>
@@ -820,12 +914,10 @@
               <li>Either manually mark a row color, or enter the amount "contributed" to auto-calculate color relative to the amount.</li>
               <li>“difference” column is <code>(contributed - amount)</code> and updates in real-time.</li>
               <li>Once finished, click "Export Your Work" to export an XLSX (Excel) file.</li>
-              <li>Use “Save Session (Local)” to store your progress in the browser.  
-                If you come back later (same browser & device), the data will be reloaded automatically.</li>
+              <li>Use “Save Session (Local)” to store your progress in the browser. If you come back later (same browser &amp; device), the data will be reloaded automatically.</li>
               <li>Try a different theme if you prefer a different look!</li>
             </ol>
           </div>
-
 
           {errorMessage && (
             <div className="error-box">
