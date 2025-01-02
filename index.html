@@ -270,79 +270,6 @@
       border-top-color: #FFFFFF;
       border-left-color: #FFFFFF;
     }
-
-    /* ---------------------------------
-       4) Pip-Boy 3000 (Fucker-Boy 3000) theme
-    ----------------------------------*/
-    body.pipboy-mode {
-      /* Dark, almost black background reminiscent of a Pip-Boy screen */
-      background-color: #0F0F0C;
-      /* Bright green text color */
-      color: #00FF33;
-    }
-    .pipboy-mode .container {
-      background-color: #141410;
-      border: 2px solid #006600; /* A subtle greenish border */
-      color: #00FF33;
-      border-radius: 4px;
-    }
-    .pipboy-mode .table-container {
-      background-color: #141410;
-      border: 1px solid #006600;
-    }
-    .pipboy-mode table {
-      background-color: #141410;
-      color: #00FF33;
-    }
-    .pipboy-mode th {
-      background-color: #0C0C09;
-      color: #00FF33;
-      border-bottom: 1px solid #00FF33;
-    }
-    .pipboy-mode td {
-      border-bottom: 1px solid #004400;
-    }
-    .pipboy-mode input[type="file"] {
-      background-color: #1C1C17;
-      border: 1px solid #008800;
-      color: #00FF33;
-    }
-    .pipboy-mode input[type="text"],
-    .pipboy-mode input[type="number"] {
-      background-color: #1C1C17;
-      border: 1px solid #008800;
-      color: #00FF33;
-    }
-    .pipboy-mode button {
-      background-color: #1C1C17;
-      border: 1px solid #008800;
-      color: #00FF33;
-    }
-    .pipboy-mode button:hover {
-      background-color: #26261F;
-    }
-    .pipboy-mode .save-button {
-      background-color: #004400;
-      color: #00FF33;
-    }
-    .pipboy-mode .save-button:hover {
-      background-color: #008800;
-    }
-    .pipboy-mode .save-button:disabled {
-      background-color: #444;
-      color: #666;
-      border: none;
-    }
-    .pipboy-mode .instructions {
-      background-color: #141410;
-      color: #00FF33;
-      border: 1px solid #006600;
-    }
-    .pipboy-mode .error-box {
-      background-color: #26261F;
-      color: #FF0000;
-      border: 1px solid #008800;
-    }
   </style>
 </head>
 
@@ -439,7 +366,7 @@
             showError('Unsupported file type. Please upload a .csv or .xlsx file.');
           }
         } catch (err) {
-          showError(\`Error loading file: \${err.message}\`);
+          showError(`Error loading file: ${err.message}`);
         }
       }
 
@@ -456,7 +383,7 @@
               return;
             }
             if (!fields.includes(REQUIRED_COLUMN)) {
-              showError(\`Error: Required column "\${REQUIRED_COLUMN}" is missing in CSV (case-insensitive).\`);
+              showError(`Error: Required column "${REQUIRED_COLUMN}" is missing in CSV (case-insensitive).`);
               return;
             }
             let newCols = [...fields];
@@ -470,7 +397,7 @@
               const diff = contrib - amt;
               return {
                 ...row,
-                _uniqueKey: \`row-\${Date.now()}-\${index}\`,
+                _uniqueKey: `row-${Date.now()}-${index}`,
                 contributed: row.contributed || '',
                 rowColor: row.rowColor || '',
                 difference: diff.toString(),
@@ -480,7 +407,7 @@
             setColumns(newCols);
           },
           error: (err) => {
-            showError(\`Papa Parse error: \${err.message}\`);
+            showError(`Papa Parse error: ${err.message}`);
           }
         });
       }
@@ -506,7 +433,7 @@
             let headers = jsonData[0].map(h => String(h || '').toLowerCase().trim());
             const rowsArr = jsonData.slice(1);
             if (!headers.includes(REQUIRED_COLUMN)) {
-              showError(\`Error: Required column "\${REQUIRED_COLUMN}" missing in XLSX (case-insensitive).\`);
+              showError(`Error: Required column "${REQUIRED_COLUMN}" missing in XLSX (case-insensitive).`);
               return;
             }
             if (!headers.includes('difference')) headers.push('difference');
@@ -522,7 +449,7 @@
               const contrib = parseFloat(sanitizeNumberString(rowObj.contributed)) || 0;
               const diff = contrib - amt;
               rowObj.difference = diff.toString();
-              rowObj._uniqueKey = \`row-\${Date.now()}-\${rowIndex}\`;
+              rowObj._uniqueKey = `row-${Date.now()}-${rowIndex}`;
               rowObj.contributed = rowObj.contributed || '';
               rowObj.rowColor = rowObj.rowColor || '';
               return rowObj;
@@ -530,7 +457,7 @@
             setData(rowObjects);
             setColumns(headers);
           } catch (err) {
-            showError(\`Error parsing XLSX: \${err.message}\`);
+            showError(`Error parsing XLSX: ${err.message}`);
           }
         };
         reader.readAsBinaryString(file);
@@ -551,7 +478,7 @@
           if (contrib < amt / 2) return 'red';
           return 'yellow';
         } catch (err) {
-          showError(\`Error computing color: \${err.message}\`);
+          showError(`Error computing color: ${err.message}`);
           return '';
         }
       }
@@ -576,7 +503,7 @@
             return row;
           }));
         } catch (err) {
-          showError(\`Error updating contributed: \${err.message}\`);
+          showError(`Error updating contributed: ${err.message}`);
         }
       }
 
@@ -607,7 +534,7 @@
             return row;
           }));
         } catch (err) {
-          showError(\`Error overriding color: \${err.message}\`);
+          showError(`Error overriding color: ${err.message}`);
         }
       }
 
@@ -666,7 +593,7 @@
           }
           return processed;
         } catch (err) {
-          showError(\`Error processing data: \${err.message}\`);
+          showError(`Error processing data: ${err.message}`);
           return [];
         }
       }, [data, filters, sortConfig, hasValidData]);
@@ -747,7 +674,7 @@
           a.click();
           URL.revokeObjectURL(url);
         } catch (err) {
-          showError(\`Error exporting file: \${err.message}\`);
+          showError(`Error exporting file: ${err.message}`);
         }
       }
 
@@ -765,7 +692,7 @@
           localStorage.setItem('fuckerFormsState', JSON.stringify(stateToSave));
           alert('Your session has been saved. You can come back to this page later and resume.');
         } catch (err) {
-          showError(\`Error saving session: \${err.message}\`);
+          showError(`Error saving session: ${err.message}`);
         }
       }
 
@@ -783,8 +710,6 @@
             <select value={theme} onChange={handleThemeChange}>
               <option value="dark-mode">Dark Mode</option>
               <option value="win95-mode">Fucker 95</option>
-              {/* Third Theme Option */}
-              <option value="pipboy-mode">Fucker-Boy 3000</option>
             </select>
           </div>
 
@@ -852,7 +777,7 @@
               </thead>
               <tbody>
                 {filteredAndSortedData.map(row => {
-                  const highlightClass = row.rowColor ? \`row-\${row.rowColor}\` : '';
+                  const highlightClass = row.rowColor ? `row-${row.rowColor}` : '';
                   return (
                     <tr key={row._uniqueKey} className={highlightClass}>
                       <td>
@@ -900,6 +825,7 @@
               <li>Try a different theme if you prefer a different look!</li>
             </ol>
           </div>
+
 
           {errorMessage && (
             <div className="error-box">
