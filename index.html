@@ -357,6 +357,13 @@
 </head>
 
 <body class="dark-mode">
+  <!-- The top-right logo. Adjust path if needed. -->
+  <img
+    class="logo-top-right"
+    src="./Fucker95.png"
+    alt="Fucker 95 Logo"
+  />
+
   <div id="root"></div>
 
   <script type="text/babel">
@@ -445,7 +452,7 @@
             showError('Unsupported file type. Please upload a .csv or .xlsx file.');
           }
         } catch (err) {
-          showError(`Error loading file: ${err.message}`);
+          showError(Error loading file: ${err.message});
         }
       }
 
@@ -462,7 +469,7 @@
               return;
             }
             if (!fields.includes(REQUIRED_COLUMN)) {
-              showError(`Error: Required column "${REQUIRED_COLUMN}" is missing in CSV (case-insensitive).`);
+              showError(Error: Required column "${REQUIRED_COLUMN}" is missing in CSV (case-insensitive).);
               return;
             }
             let newCols = [...fields];
@@ -476,7 +483,7 @@
               const diff = contrib - amt;
               return {
                 ...row,
-                _uniqueKey: `row-${Date.now()}-${index}`,
+                _uniqueKey: row-${Date.now()}-${index},
                 contributed: row.contributed || '',
                 rowColor: row.rowColor || '',
                 difference: diff.toString(),
@@ -486,7 +493,7 @@
             setColumns(newCols);
           },
           error: (err) => {
-            showError(`Papa Parse error: ${err.message}`);
+            showError(Papa Parse error: ${err.message});
           }
         });
       }
@@ -512,7 +519,7 @@
             let headers = jsonData[0].map(h => String(h || '').toLowerCase().trim());
             const rowsArr = jsonData.slice(1);
             if (!headers.includes(REQUIRED_COLUMN)) {
-              showError(`Error: Required column "${REQUIRED_COLUMN}" missing in XLSX (case-insensitive).`);
+              showError(Error: Required column "${REQUIRED_COLUMN}" missing in XLSX (case-insensitive).);
               return;
             }
             if (!headers.includes('difference')) headers.push('difference');
@@ -528,7 +535,7 @@
               const contrib = parseFloat(sanitizeNumberString(rowObj.contributed)) || 0;
               const diff = contrib - amt;
               rowObj.difference = diff.toString();
-              rowObj._uniqueKey = `row-${Date.now()}-${rowIndex}`;
+              rowObj._uniqueKey = row-${Date.now()}-${rowIndex};
               rowObj.contributed = rowObj.contributed || '';
               rowObj.rowColor = rowObj.rowColor || '';
               return rowObj;
@@ -536,7 +543,7 @@
             setData(rowObjects);
             setColumns(headers);
           } catch (err) {
-            showError(`Error parsing XLSX: ${err.message}`);
+            showError(Error parsing XLSX: ${err.message});
           }
         };
         reader.readAsBinaryString(file);
@@ -558,7 +565,7 @@
           if (contrib < amt / 2) return 'red';
           return 'yellow';
         } catch (err) {
-          showError(`Error computing color: ${err.message}`);
+          showError(Error computing color: ${err.message});
           return '';
         }
       }
@@ -583,7 +590,7 @@
             return row;
           }));
         } catch (err) {
-          showError(`Error updating contributed: ${err.message}`);
+          showError(Error updating contributed: ${err.message});
         }
       }
 
@@ -614,7 +621,7 @@
             return row;
           }));
         } catch (err) {
-          showError(`Error overriding color: ${err.message}`);
+          showError(Error overriding color: ${err.message});
         }
       }
 
@@ -677,7 +684,7 @@
 
           return processed;
         } catch (err) {
-          showError(`Error processing data: ${err.message}`);
+          showError(Error processing data: ${err.message});
           return [];
         }
       }, [data, filters, sortConfig, hasValidData]);
@@ -760,7 +767,7 @@
           a.click();
           URL.revokeObjectURL(url);
         } catch (err) {
-          showError(`Error exporting file: ${err.message}`);
+          showError(Error exporting file: ${err.message});
         }
       }
 
@@ -778,7 +785,7 @@
           localStorage.setItem('fuckerFormsState', JSON.stringify(stateToSave));
           alert('Your session has been saved. You can come back later to resume.');
         } catch (err) {
-          showError(`Error saving session: ${err.message}`);
+          showError(Error saving session: ${err.message});
         }
       }
 
@@ -789,153 +796,136 @@
       }
 
       return (
-        <>
-          {/* Conditionally show the correct logo based on theme */}
-          {theme === 'pipboy-mode' ? (
-            <img
-              className="logo-top-right"
-              src="./Fucker95Green.png"
-              alt="Fucker-Boy 3000 Logo"
-            />
-          ) : (
-            <img
-              className="logo-top-right"
-              src="./Fucker95.png"
-              alt="Fucker 95 Logo"
-            />
-          )}
-
-          <div className="container">
-            {/* Theme Dropdown */}
-            <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <label style={{ marginRight: '8px' }}>Theme:</label>
-              <select value={theme} onChange={handleThemeChange}>
-                <option value="dark-mode">Dark Mode</option>
-                <option value="win95-mode">Fucker 95</option>
-                <option value="pipboy-mode">Fucker-Boy 3000</option>
-              </select>
-            </div>
-
-            <div className="header-controls">
-              <input type="file" accept=".csv,.xlsx" onChange={handleFileUpload} />
-              
-              <button
-                className="save-button"
-                onClick={handleExportXLSX}
-                disabled={!hasValidData}
-              >
-                Export Your Work
-              </button>
-
-              <button onClick={handleSaveSession}>
-                Save Session (Local)
-              </button>
-              <button onClick={handleClearSession}>
-                Reset Local Session
-              </button>
-            </div>
-
-            <div className="filters-and-sort">
-              <div className="filters">
-                {['action', 'description', 'done_at', 'amount', 'difference'].map(col => (
-                  columns.includes(col) && (
-                    <div key={col}>
-                      <label>{col}: </label>
-                      <input
-                        type="text"
-                        onChange={e => handleFilter(col, e.target.value)}
-                        placeholder={`Multi-word search ${col}...`}
-                        disabled={!hasValidData}
-                      />
-                    </div>
-                  )
-                ))}
-              </div>
-              <button
-                className="sort-button"
-                onClick={handleAmountSort}
-                disabled={!columns.includes('amount') || !hasValidData}
-              >
-                Sort Amount {sortDirection === 'asc' ? '↑' : '↓'}
-              </button>
-            </div>
-
-            <div className="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Row Actions</th>
-                    {columns.map(col => (
-                      <th
-                        key={col}
-                        onClick={() => handleSort(col)}
-                      >
-                        {col}
-                        {sortConfig.key === col && (
-                          sortConfig.direction === 'asc' ? ' ↑' : ' ↓'
-                        )}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAndSortedData.map(row => {
-                    const highlightClass = row.rowColor ? `row-${row.rowColor}` : '';
-                    return (
-                      <tr key={row._uniqueKey} className={highlightClass}>
-                        <td>
-                          <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
-                          <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
-                          <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
-                          <button onClick={() => handleRowColor(row._uniqueKey, 'clear')}>Clear</button>
-                        </td>
-                        {columns.map(col => {
-                          if (col === 'rowColor') {
-                            return <td key={col}>{row.rowColor}</td>;
-                          }
-                          if (col === 'contributed') {
-                            return (
-                              <td key={col}>
-                                <input
-                                  type="text"
-                                  value={row.contributed || ''}
-                                  onChange={e => handleContributedChange(row._uniqueKey, e.target.value)}
-                                />
-                              </td>
-                            );
-                          }
-                          return <td key={col}>{row[col]}</td>;
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Instructions Section */}
-            <div className="instructions">
-              <h2>Fucker Forms User Manual:</h2>
-              <ol>
-                <li>Upload the CSV exported from the PD account.</li>
-                <li>Filter by action, description, or amount. For example, filter “salary” in descriptions.</li>
-                <li>Click "Sort Amount" to reorder by ascending or descending amounts.</li>
-                <li>Either manually mark a row color, or enter the amount "contributed" to auto-calculate color relative to the amount.</li>
-                <li>“difference” column is <code>(contributed - amount)</code> and updates in real-time.</li>
-                <li>Once finished, click "Export Your Work" to export an XLSX (Excel) file.</li>
-                <li>Use “Save Session (Local)” to store your progress in the browser. If you come back later (same browser &amp; device), the data will be reloaded automatically.</li>
-                <li>Try a different theme if you prefer a different look!</li>
-              </ol>
-            </div>
-
-            {errorMessage && (
-              <div className="error-box">
-                <h2>Error</h2>
-                <p>{errorMessage}</p>
-              </div>
-            )}
+        <div className="container">
+          {/* Theme Dropdown */}
+          <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <label style={{ marginRight: '8px' }}>Theme:</label>
+            <select value={theme} onChange={handleThemeChange}>
+              <option value="dark-mode">Dark Mode</option>
+              <option value="win95-mode">Fucker 95</option>
+              <option value="pipboy-mode">Fucker-Boy 3000</option>
+            </select>
           </div>
-        </>
+
+          <div className="header-controls">
+            <input type="file" accept=".csv,.xlsx" onChange={handleFileUpload} />
+            
+            <button
+              className="save-button"
+              onClick={handleExportXLSX}
+              disabled={!hasValidData}
+            >
+              Export Your Work
+            </button>
+
+            <button onClick={handleSaveSession}>
+              Save Session (Local)
+            </button>
+            <button onClick={handleClearSession}>
+              Reset Local Session
+            </button>
+          </div>
+
+          <div className="filters-and-sort">
+            <div className="filters">
+              {['action', 'description', 'done_at', 'amount', 'difference'].map(col => (
+                columns.includes(col) && (
+                  <div key={col}>
+                    <label>{col}: </label>
+                    <input
+                      type="text"
+                      onChange={e => handleFilter(col, e.target.value)}
+                      placeholder={Multi-word search ${col}...}
+                      disabled={!hasValidData}
+                    />
+                  </div>
+                )
+              ))}
+            </div>
+            <button
+              className="sort-button"
+              onClick={handleAmountSort}
+              disabled={!columns.includes('amount') || !hasValidData}
+            >
+              Sort Amount {sortDirection === 'asc' ? '↑' : '↓'}
+            </button>
+          </div>
+
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Row Actions</th>
+                  {columns.map(col => (
+                    <th
+                      key={col}
+                      onClick={() => handleSort(col)}
+                    >
+                      {col}
+                      {sortConfig.key === col && (
+                        sortConfig.direction === 'asc' ? ' ↑' : ' ↓'
+                      )}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredAndSortedData.map(row => {
+                  const highlightClass = row.rowColor ? row-${row.rowColor} : '';
+                  return (
+                    <tr key={row._uniqueKey} className={highlightClass}>
+                      <td>
+                        <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
+                        <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
+                        <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
+                        <button onClick={() => handleRowColor(row._uniqueKey, 'clear')}>Clear</button>
+                      </td>
+                      {columns.map(col => {
+                        if (col === 'rowColor') {
+                          return <td key={col}>{row.rowColor}</td>;
+                        }
+                        if (col === 'contributed') {
+                          return (
+                            <td key={col}>
+                              <input
+                                type="text"
+                                value={row.contributed || ''}
+                                onChange={e => handleContributedChange(row._uniqueKey, e.target.value)}
+                              />
+                            </td>
+                          );
+                        }
+                        return <td key={col}>{row[col]}</td>;
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Instructions Section */}
+          <div className="instructions">
+            <h2>Fucker Forms User Manual:</h2>
+            <ol>
+              <li>Upload the CSV exported from the PD account.</li>
+              <li>Filter by action, description, or amount. For example, filter “salary” in descriptions.</li>
+              <li>Click "Sort Amount" to reorder by ascending or descending amounts.</li>
+              <li>Either manually mark a row color, or enter the amount "contributed" to auto-calculate color relative to the amount.</li>
+              <li>“difference” column is <code>(contributed - amount)</code> and updates in real-time.</li>
+              <li>Once finished, click "Export Your Work" to export an XLSX (Excel) file.</li>
+              <li>Use “Save Session (Local)” to store your progress in the browser. If you come back later (same browser &amp; device), the data will be reloaded automatically.</li>
+              <li>Try a different theme if you prefer a different look!</li>
+            </ol>
+          </div>
+
+          {errorMessage && (
+            <div className="error-box">
+              <h2>Error</h2>
+              <p>{errorMessage}</p>
+            </div>
+          )}
+        </div>
       );
     }
 
@@ -943,3 +933,4 @@
   </script>
 </body>
 </html>
+
