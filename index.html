@@ -270,6 +270,78 @@
       border-top-color: #FFFFFF;
       border-left-color: #FFFFFF;
     }
+
+    /* ---------------------------------
+       4) DOS / Pip-Boy style theme
+          (Fucker-Boy 3000)
+    ----------------------------------*/
+    body.fuckerboy-mode {
+      /* Classic DOS black background with green text */
+      background-color: #000000;
+      color: #00ff00;
+      font-family: 'Courier New', Courier, monospace;
+    }
+    .fuckerboy-mode .container {
+      background-color: #000000;
+      color: #00ff00;
+      border: 1px solid #00ff00;
+      border-radius: 0;
+    }
+    .fuckerboy-mode .table-container {
+      background-color: #000000;
+      border: 1px solid #00ff00;
+    }
+    .fuckerboy-mode table {
+      background-color: #000000;
+      color: #00ff00;
+    }
+    .fuckerboy-mode th {
+      background-color: #000000;
+      color: #00ff00;
+      border-bottom: 1px solid #00ff00;
+    }
+    .fuckerboy-mode td {
+      border-bottom: 1px dashed #00ff00;
+    }
+    .fuckerboy-mode input[type="file"],
+    .fuckerboy-mode input[type="text"],
+    .fuckerboy-mode input[type="number"] {
+      background-color: #000000;
+      border: 1px solid #00ff00;
+      color: #00ff00;
+      font-family: 'Courier New', Courier, monospace;
+    }
+    .fuckerboy-mode button {
+      background-color: #000000;
+      color: #00ff00;
+      border: 1px solid #00ff00;
+      font-family: 'Courier New', Courier, monospace;
+    }
+    .fuckerboy-mode button:hover {
+      background-color: #001400; /* a darker green hint */
+      color: #00ff00;
+    }
+    .fuckerboy-mode .save-button {
+      background-color: #000000;
+      color: #00ff00;
+      border: 2px solid #00ff00;
+    }
+    .fuckerboy-mode .save-button:disabled {
+      background-color: #002200;
+      color: #88ff88;
+      border: 2px dashed #00ff00;
+      cursor: not-allowed;
+    }
+    .fuckerboy-mode .instructions {
+      background-color: #000000;
+      color: #00ff00;
+      border: 1px solid #00ff00;
+    }
+    .fuckerboy-mode .error-box {
+      background-color: #000000;
+      color: #ff4444; /* bright red error text against black/green scheme */
+      border: 1px solid #ff4444;
+    }
   </style>
 </head>
 
@@ -366,7 +438,7 @@
             showError('Unsupported file type. Please upload a .csv or .xlsx file.');
           }
         } catch (err) {
-          showError(`Error loading file: ${err.message}`);
+          showError(\`Error loading file: \${err.message}\`);
         }
       }
 
@@ -383,7 +455,7 @@
               return;
             }
             if (!fields.includes(REQUIRED_COLUMN)) {
-              showError(`Error: Required column "${REQUIRED_COLUMN}" is missing in CSV (case-insensitive).`);
+              showError(\`Error: Required column "\${REQUIRED_COLUMN}" is missing in CSV (case-insensitive).\`);
               return;
             }
             let newCols = [...fields];
@@ -397,7 +469,7 @@
               const diff = contrib - amt;
               return {
                 ...row,
-                _uniqueKey: `row-${Date.now()}-${index}`,
+                _uniqueKey: \`row-\${Date.now()}-\${index}\`,
                 contributed: row.contributed || '',
                 rowColor: row.rowColor || '',
                 difference: diff.toString(),
@@ -407,7 +479,7 @@
             setColumns(newCols);
           },
           error: (err) => {
-            showError(`Papa Parse error: ${err.message}`);
+            showError(\`Papa Parse error: \${err.message}\`);
           }
         });
       }
@@ -433,7 +505,7 @@
             let headers = jsonData[0].map(h => String(h || '').toLowerCase().trim());
             const rowsArr = jsonData.slice(1);
             if (!headers.includes(REQUIRED_COLUMN)) {
-              showError(`Error: Required column "${REQUIRED_COLUMN}" missing in XLSX (case-insensitive).`);
+              showError(\`Error: Required column "\${REQUIRED_COLUMN}" missing in XLSX (case-insensitive).\`);
               return;
             }
             if (!headers.includes('difference')) headers.push('difference');
@@ -449,7 +521,7 @@
               const contrib = parseFloat(sanitizeNumberString(rowObj.contributed)) || 0;
               const diff = contrib - amt;
               rowObj.difference = diff.toString();
-              rowObj._uniqueKey = `row-${Date.now()}-${rowIndex}`;
+              rowObj._uniqueKey = \`row-\${Date.now()}-\${rowIndex}\`;
               rowObj.contributed = rowObj.contributed || '';
               rowObj.rowColor = rowObj.rowColor || '';
               return rowObj;
@@ -457,7 +529,7 @@
             setData(rowObjects);
             setColumns(headers);
           } catch (err) {
-            showError(`Error parsing XLSX: ${err.message}`);
+            showError(\`Error parsing XLSX: \${err.message}\`);
           }
         };
         reader.readAsBinaryString(file);
@@ -478,7 +550,7 @@
           if (contrib < amt / 2) return 'red';
           return 'yellow';
         } catch (err) {
-          showError(`Error computing color: ${err.message}`);
+          showError(\`Error computing color: \${err.message}\`);
           return '';
         }
       }
@@ -503,7 +575,7 @@
             return row;
           }));
         } catch (err) {
-          showError(`Error updating contributed: ${err.message}`);
+          showError(\`Error updating contributed: \${err.message}\`);
         }
       }
 
@@ -534,7 +606,7 @@
             return row;
           }));
         } catch (err) {
-          showError(`Error overriding color: ${err.message}`);
+          showError(\`Error overriding color: \${err.message}\`);
         }
       }
 
@@ -593,7 +665,7 @@
           }
           return processed;
         } catch (err) {
-          showError(`Error processing data: ${err.message}`);
+          showError(\`Error processing data: \${err.message}\`);
           return [];
         }
       }, [data, filters, sortConfig, hasValidData]);
@@ -674,7 +746,7 @@
           a.click();
           URL.revokeObjectURL(url);
         } catch (err) {
-          showError(`Error exporting file: ${err.message}`);
+          showError(\`Error exporting file: \${err.message}\`);
         }
       }
 
@@ -692,7 +764,7 @@
           localStorage.setItem('fuckerFormsState', JSON.stringify(stateToSave));
           alert('Your session has been saved. You can come back to this page later and resume.');
         } catch (err) {
-          showError(`Error saving session: ${err.message}`);
+          showError(\`Error saving session: \${err.message}\`);
         }
       }
 
@@ -710,6 +782,9 @@
             <select value={theme} onChange={handleThemeChange}>
               <option value="dark-mode">Dark Mode</option>
               <option value="win95-mode">Fucker 95</option>
+
+              {/* NEW THEME OPTION */}
+              <option value="fuckerboy-mode">Fucker-Boy 3000</option>
             </select>
           </div>
 
@@ -777,7 +852,7 @@
               </thead>
               <tbody>
                 {filteredAndSortedData.map(row => {
-                  const highlightClass = row.rowColor ? `row-${row.rowColor}` : '';
+                  const highlightClass = row.rowColor ? \`row-\${row.rowColor}\` : '';
                   return (
                     <tr key={row._uniqueKey} className={highlightClass}>
                       <td>
