@@ -698,19 +698,15 @@
           return;
         }
         try {
-          // Only include visible columns in the export
           const dataToSave = filteredAndSortedData.map(row => {
-            const newRow = {};
-            columns.filter(col => visibleColumns[col]).forEach(col => {
-              newRow[col] = row[col];
-            });
+            const newRow = { ...row };
+            delete newRow._uniqueKey;
             return newRow;
           });
-
           const wb = XLSXLib.utils.book_new();
           const ws = XLSXLib.utils.json_to_sheet(dataToSave);
 
-          // Color highlight in the XLSX (only for visible columns)
+          // Color highlight in the XLSX
           filteredAndSortedData.forEach((row, idx) => {
             const colorName = row.rowColor || '';
             if (!colorName) return;
@@ -734,8 +730,7 @@
             const style = colorMap[colorName];
             if (!style) return;
 
-            // Only apply styles to visible columns
-            columns.filter(col => visibleColumns[col]).forEach((col, colIndex) => {
+            columns.forEach((col, colIndex) => {
               const cellRef = XLSXLib.utils.encode_cell({ r: idx + 1, c: colIndex });
               if (!ws[cellRef]) ws[cellRef] = {};
               ws[cellRef].s = {
@@ -750,12 +745,9 @@
             });
           });
 
-          // Set column widths only for visible columns
-          const colWidths = columns
-            .filter(col => visibleColumns[col])
-            .map(col => ({
-              wch: col === 'contributed' ? 15 : Math.max(col.length, 10)
-            }));
+          const colWidths = columns.map(col => ({
+            wch: col === 'contributed' ? 15 : Math.max(col.length, 10)
+          }));
           ws['!cols'] = colWidths;
 
           XLSXLib.utils.book_append_sheet(wb, ws, 'Sheet1');
@@ -927,12 +919,12 @@
               <h2>Fucker Forms User Manual:</h2>
               <ol>
                 <li>Upload the CSV exported from the PD account.</li>
-                <li>Filter by action, description, or amount. For example, filter "salary" in descriptions.</li>
+                <li>Filter by action, description, or amount. For example, filter “salary” in descriptions.</li>
                 <li>Click "Sort Amount" to reorder by ascending or descending amounts.</li>
                 <li>Either manually mark a row color, or enter the amount "contributed" to auto-calculate color relative to the amount.</li>
-                <li>"difference" column is <code>(contributed - amount)</code> and updates in real-time.</li>
+                <li>“difference” column is <code>(contributed - amount)</code> and updates in real-time.</li>
                 <li>Once finished, click "Export Your Work" to export an XLSX (Excel) file.</li>
-                <li>Use "Save Session (Local)" to store your progress in the browser. If you come back later (same browser &amp; device), the data will be reloaded automatically.</li>
+                <li>Use “Save Session (Local)” to store your progress in the browser. If you come back later (same browser &amp; device), the data will be reloaded automatically.</li>
                 <li>Try a different theme if you prefer a different look!</li>
               </ol>
             </div>
@@ -952,3 +944,4 @@
   </script>
 </body>
 </html>
+
