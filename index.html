@@ -270,88 +270,6 @@
       border-top-color: #FFFFFF;
       border-left-color: #FFFFFF;
     }
-
-    /* ---------------------------------
-       4) Pip-Boy (Fucker-Boy 3000) theme
-    ----------------------------------*/
-    body.pipboy-mode {
-      background-color: #000000;
-      color: #2ed058;
-      font-family: 'Courier New', monospace;
-    }
-    .pipboy-mode .container {
-      background-color: #000000;
-      border: 2px solid #2ed058;
-      color: #2ed058;
-    }
-    .pipboy-mode .table-container {
-      background-color: #000000;
-      border: 1px solid #2ed058;
-    }
-    .pipboy-mode table {
-      background-color: #000000;
-    }
-    .pipboy-mode th {
-      background-color: #0a280f;
-      color: #2ed058;
-      border: 1px solid #2ed058;
-    }
-    .pipboy-mode td {
-      border-bottom: 1px solid #2ed058;
-    }
-    .pipboy-mode input[type="file"],
-    .pipboy-mode input[type="text"],
-    .pipboy-mode input[type="number"],
-    .pipboy-mode select {
-      background-color: #000000;
-      color: #2ed058;
-      border: 1px solid #2ed058;
-      font-family: 'Courier New', monospace;
-    }
-    .pipboy-mode button {
-      background-color: #0a280f;
-      color: #2ed058;
-      border: 1px solid #2ed058;
-      font-family: 'Courier New', monospace;
-      text-transform: uppercase;
-      font-weight: bold;
-    }
-    .pipboy-mode button:hover {
-      background-color: #2ed058;
-      color: #000000;
-    }
-    .pipboy-mode .save-button {
-      background-color: #0a280f;
-      color: #2ed058;
-    }
-    .pipboy-mode .save-button:hover {
-      background-color: #2ed058;
-      color: #000000;
-    }
-    .pipboy-mode .save-button:disabled {
-      background-color: #0a280f;
-      color: #184726;
-      border-color: #184726;
-    }
-    .pipboy-mode .instructions {
-      background-color: #0a280f;
-      color: #2ed058;
-      border: 1px solid #2ed058;
-    }
-    .pipboy-mode .error-box {
-      background-color: #280a0a;
-      color: #2ed058;
-      border: 1px solid #2ed058;
-    }
-    .pipboy-mode .row-green {
-      background-color: rgba(46, 208, 88, 0.2);
-    }
-    .pipboy-mode .row-yellow {
-      background-color: rgba(208, 208, 46, 0.2);
-    }
-    .pipboy-mode .row-red {
-      background-color: rgba(208, 46, 46, 0.2);
-    }
   </style>
 </head>
 
@@ -448,7 +366,7 @@
             showError('Unsupported file type. Please upload a .csv or .xlsx file.');
           }
         } catch (err) {
-          showError(\`Error loading file: \${err.message}\`);
+          showError(`Error loading file: ${err.message}`);
         }
       }
 
@@ -465,7 +383,7 @@
               return;
             }
             if (!fields.includes(REQUIRED_COLUMN)) {
-              showError(\`Error: Required column "\${REQUIRED_COLUMN}" is missing in CSV (case-insensitive).\`);
+              showError(`Error: Required column "${REQUIRED_COLUMN}" is missing in CSV (case-insensitive).`);
               return;
             }
             let newCols = [...fields];
@@ -479,7 +397,7 @@
               const diff = contrib - amt;
               return {
                 ...row,
-                _uniqueKey: \`row-\${Date.now()}-\${index}\`,
+                _uniqueKey: `row-${Date.now()}-${index}`,
                 contributed: row.contributed || '',
                 rowColor: row.rowColor || '',
                 difference: diff.toString(),
@@ -489,7 +407,7 @@
             setColumns(newCols);
           },
           error: (err) => {
-            showError(\`Papa Parse error: \${err.message}\`);
+            showError(`Papa Parse error: ${err.message}`);
           }
         });
       }
@@ -515,7 +433,7 @@
             let headers = jsonData[0].map(h => String(h || '').toLowerCase().trim());
             const rowsArr = jsonData.slice(1);
             if (!headers.includes(REQUIRED_COLUMN)) {
-              showError(\`Error: Required column "\${REQUIRED_COLUMN}" missing in XLSX (case-insensitive).\`);
+              showError(`Error: Required column "${REQUIRED_COLUMN}" missing in XLSX (case-insensitive).`);
               return;
             }
             if (!headers.includes('difference')) headers.push('difference');
@@ -531,7 +449,7 @@
               const contrib = parseFloat(sanitizeNumberString(rowObj.contributed)) || 0;
               const diff = contrib - amt;
               rowObj.difference = diff.toString();
-              rowObj._uniqueKey = \`row-\${Date.now()}-\${rowIndex}\`;
+              rowObj._uniqueKey = `row-${Date.now()}-${rowIndex}`;
               rowObj.contributed = rowObj.contributed || '';
               rowObj.rowColor = rowObj.rowColor || '';
               return rowObj;
@@ -539,7 +457,7 @@
             setData(rowObjects);
             setColumns(headers);
           } catch (err) {
-            showError(\`Error parsing XLSX: \${err.message}\`);
+            showError(`Error parsing XLSX: ${err.message}`);
           }
         };
         reader.readAsBinaryString(file);
@@ -560,7 +478,7 @@
           if (contrib < amt / 2) return 'red';
           return 'yellow';
         } catch (err) {
-          showError(\`Error computing color: \${err.message}\`);
+          showError(`Error computing color: ${err.message}`);
           return '';
         }
       }
@@ -585,7 +503,7 @@
             return row;
           }));
         } catch (err) {
-          showError(\`Error updating contributed: \${err.message}\`);
+          showError(`Error updating contributed: ${err.message}`);
         }
       }
 
@@ -616,7 +534,7 @@
             return row;
           }));
         } catch (err) {
-          showError(\`Error overriding color: \${err.message}\`);
+          showError(`Error overriding color: ${err.message}`);
         }
       }
 
@@ -675,7 +593,7 @@
           }
           return processed;
         } catch (err) {
-          showError(\`Error processing data: \${err.message}\`);
+          showError(`Error processing data: ${err.message}`);
           return [];
         }
       }, [data, filters, sortConfig, hasValidData]);
@@ -756,7 +674,7 @@
           a.click();
           URL.revokeObjectURL(url);
         } catch (err) {
-          showError(\`Error exporting file: \${err.message}\`);
+          showError(`Error exporting file: ${err.message}`);
         }
       }
 
@@ -774,7 +692,7 @@
           localStorage.setItem('fuckerFormsState', JSON.stringify(stateToSave));
           alert('Your session has been saved. You can come back to this page later and resume.');
         } catch (err) {
-          showError(\`Error saving session: \${err.message}\`);
+          showError(`Error saving session: ${err.message}`);
         }
       }
 
@@ -792,8 +710,6 @@
             <select value={theme} onChange={handleThemeChange}>
               <option value="dark-mode">Dark Mode</option>
               <option value="win95-mode">Fucker 95</option>
-              {/* Add the new Pip-Boy theme option */}
-              <option value="pipboy-mode">Fucker-Boy 3000</option>
             </select>
           </div>
 
@@ -861,7 +777,7 @@
               </thead>
               <tbody>
                 {filteredAndSortedData.map(row => {
-                  const highlightClass = row.rowColor ? \`row-\${row.rowColor}\` : '';
+                  const highlightClass = row.rowColor ? `row-${row.rowColor}` : '';
                   return (
                     <tr key={row._uniqueKey} className={highlightClass}>
                       <td>
@@ -894,7 +810,7 @@
             </table>
           </div>
 
-          {/* Instructions Section */}
+         {/* Instructions Section */}
           <div className="instructions">
             <h2>Fucker Forms User Manual:</h2>
             <ol>
@@ -909,6 +825,7 @@
               <li>Try a different theme if you prefer a different look!</li>
             </ol>
           </div>
+
 
           {errorMessage && (
             <div className="error-box">
