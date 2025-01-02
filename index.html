@@ -353,6 +353,23 @@
     .pipboy-mode .row-red {
       background-color: rgba(208, 46, 46, 0.2);
     }
+
+    .column-toggles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .column-toggles label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .column-toggles input[type="checkbox"] {
+      margin: 0;
+    }
   </style>
 </head>
 
@@ -376,6 +393,7 @@
       const [errorMessage, setErrorMessage] = useState('');
       // Default theme
       const [theme, setTheme] = useState('dark-mode');
+      const [visibleColumns, setVisibleColumns] = useState({});
 
       // On initial mount, try loading from localStorage
       useEffect(() => {
@@ -399,6 +417,17 @@
       useEffect(() => {
         document.body.className = theme;
       }, [theme]);
+
+      useEffect(() => {
+        // Initialize all columns as visible
+        if (columns.length > 0) {
+          const initialVisibility = columns.reduce((acc, col) => {
+            acc[col] = true;
+            return acc;
+          }, {});
+          setVisibleColumns(initialVisibility);
+        }
+      }, [columns]);
 
       const REQUIRED_COLUMN = 'amount';
 
@@ -788,6 +817,13 @@
         alert('Session cleared from local storage. Reload page to start fresh.');
       }
 
+      function handleColumnToggle(column) {
+        setVisibleColumns(prev => ({
+          ...prev,
+          [column]: !prev[column]
+        }));
+      }
+
       // Note the named <React.Fragment> replacing <>...</>
       return (
         <React.Fragment>
@@ -861,12 +897,26 @@
               </button>
             </div>
 
+            <div className="column-toggles" style={{ marginBottom: '20px' }}>
+              <strong>Show/Hide Columns:</strong>
+              {columns.map(col => (
+                <label key={col} style={{ marginLeft: '10px' }}>
+                  <input
+                    type="checkbox"
+                    checked={visibleColumns[col] || false}
+                    onChange={() => handleColumnToggle(col)}
+                  />
+                  {col}
+                </label>
+              ))}
+            </div>
+
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
                     <th>Row Actions</th>
-                    {columns.map(col => (
+                    {columns.filter(col => visibleColumns[col]).map(col => (
                       <th
                         key={col}
                         onClick={() => handleSort(col)}
@@ -890,7 +940,7 @@
                           <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
                           <button onClick={() => handleRowColor(row._uniqueKey, 'clear')}>Clear</button>
                         </td>
-                        {columns.map(col => {
+                        {columns.filter(col => visibleColumns[col]).map(col => {
                           if (col === 'rowColor') {
                             return <td key={col}>{row.rowColor}</td>;
                           }
@@ -919,12 +969,12 @@
               <h2>Fucker Forms User Manual:</h2>
               <ol>
                 <li>Upload the CSV exported from the PD account.</li>
-                <li>Filter by action, description, or amount. For example, filter “salary” in descriptions.</li>
+                <li>Filter by action, description, or amount. For example, filter "salary" in descriptions.</li>
                 <li>Click "Sort Amount" to reorder by ascending or descending amounts.</li>
                 <li>Either manually mark a row color, or enter the amount "contributed" to auto-calculate color relative to the amount.</li>
-                <li>“difference” column is <code>(contributed - amount)</code> and updates in real-time.</li>
+                <li>"difference" column is <code>(contributed - amount)</code> and updates in real-time.</li>
                 <li>Once finished, click "Export Your Work" to export an XLSX (Excel) file.</li>
-                <li>Use “Save Session (Local)” to store your progress in the browser. If you come back later (same browser &amp; device), the data will be reloaded automatically.</li>
+                <li>Use "Save Session (Local)" to store your progress in the browser. If you come back later (same browser &amp; device), the data will be reloaded automatically.</li>
                 <li>Try a different theme if you prefer a different look!</li>
               </ol>
             </div>
@@ -944,4 +994,3 @@
   </script>
 </body>
 </html>
-
