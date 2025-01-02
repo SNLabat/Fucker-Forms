@@ -1,4 +1,4 @@
-# Fucker Forms
+# Fucker Forms (https://fuckerforms.com)
 
 v1.0 Changelog
 
@@ -9,4 +9,5 @@ v1.0 Changelog
 5) You can manually mark rows by a specific color. 
 6) Calculating what's in the "contributed" field will automatically assign a color based on the difference between was was brought in vs. how much was taken out. For instance, if someone took out a $20,000 paycheck but only contributed $450 into the budget, it will automatically mark this row as "red". 
 7) Once you're done, you can "Export Your Work" to a new Excel spreadsheet that has your work filtered down to the view you're working on. 
-8) If you don't want to lose your work but need to come back to it later, "Save Session (Local)" will store your work on in just your browser so that you can close the window and come back to it and not lose your work. 
+8) If you don't want to lose your work but need to come back to it later, "Save Session (Local)" will store your work on in just your browser so that you can close the window and come back to it and not lose your work.
+9) There's different "themes" to choose from, including Fucker95, the outdated operating system used by law enforcement in the Los Santos area. 
