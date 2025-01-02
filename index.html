@@ -353,23 +353,6 @@
     .pipboy-mode .row-red {
       background-color: rgba(208, 46, 46, 0.2);
     }
-
-    .column-toggles {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .column-toggles label {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .column-toggles input[type="checkbox"] {
-      margin: 0;
-    }
   </style>
 </head>
 
@@ -393,7 +376,6 @@
       const [errorMessage, setErrorMessage] = useState('');
       // Default theme
       const [theme, setTheme] = useState('dark-mode');
-      const [visibleColumns, setVisibleColumns] = useState({});
 
       // On initial mount, try loading from localStorage
       useEffect(() => {
@@ -417,17 +399,6 @@
       useEffect(() => {
         document.body.className = theme;
       }, [theme]);
-
-      useEffect(() => {
-        // Initialize all columns as visible
-        if (columns.length > 0) {
-          const initialVisibility = columns.reduce((acc, col) => {
-            acc[col] = true;
-            return acc;
-          }, {});
-          setVisibleColumns(initialVisibility);
-        }
-      }, [columns]);
 
       const REQUIRED_COLUMN = 'amount';
 
@@ -727,15 +698,19 @@
           return;
         }
         try {
+          // Only include visible columns in the export
           const dataToSave = filteredAndSortedData.map(row => {
-            const newRow = { ...row };
-            delete newRow._uniqueKey;
+            const newRow = {};
+            columns.filter(col => visibleColumns[col]).forEach(col => {
+              newRow[col] = row[col];
+            });
             return newRow;
           });
+
           const wb = XLSXLib.utils.book_new();
           const ws = XLSXLib.utils.json_to_sheet(dataToSave);
 
-          // Color highlight in the XLSX
+          // Color highlight in the XLSX (only for visible columns)
           filteredAndSortedData.forEach((row, idx) => {
             const colorName = row.rowColor || '';
             if (!colorName) return;
@@ -759,7 +734,8 @@
             const style = colorMap[colorName];
             if (!style) return;
 
-            columns.forEach((col, colIndex) => {
+            // Only apply styles to visible columns
+            columns.filter(col => visibleColumns[col]).forEach((col, colIndex) => {
               const cellRef = XLSXLib.utils.encode_cell({ r: idx + 1, c: colIndex });
               if (!ws[cellRef]) ws[cellRef] = {};
               ws[cellRef].s = {
@@ -774,9 +750,12 @@
             });
           });
 
-          const colWidths = columns.map(col => ({
-            wch: col === 'contributed' ? 15 : Math.max(col.length, 10)
-          }));
+          // Set column widths only for visible columns
+          const colWidths = columns
+            .filter(col => visibleColumns[col])
+            .map(col => ({
+              wch: col === 'contributed' ? 15 : Math.max(col.length, 10)
+            }));
           ws['!cols'] = colWidths;
 
           XLSXLib.utils.book_append_sheet(wb, ws, 'Sheet1');
@@ -815,13 +794,6 @@
       function handleClearSession() {
         localStorage.removeItem('fuckerFormsState');
         alert('Session cleared from local storage. Reload page to start fresh.');
-      }
-
-      function handleColumnToggle(column) {
-        setVisibleColumns(prev => ({
-          ...prev,
-          [column]: !prev[column]
-        }));
       }
 
       // Note the named <React.Fragment> replacing <>...</>
@@ -897,26 +869,12 @@
               </button>
             </div>
 
-            <div className="column-toggles" style={{ marginBottom: '20px' }}>
-              <strong>Show/Hide Columns:</strong>
-              {columns.map(col => (
-                <label key={col} style={{ marginLeft: '10px' }}>
-                  <input
-                    type="checkbox"
-                    checked={visibleColumns[col] || false}
-                    onChange={() => handleColumnToggle(col)}
-                  />
-                  {col}
-                </label>
-              ))}
-            </div>
-
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
                     <th>Row Actions</th>
-                    {columns.filter(col => visibleColumns[col]).map(col => (
+                    {columns.map(col => (
                       <th
                         key={col}
                         onClick={() => handleSort(col)}
@@ -940,7 +898,7 @@
                           <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
                           <button onClick={() => handleRowColor(row._uniqueKey, 'clear')}>Clear</button>
                         </td>
-                        {columns.filter(col => visibleColumns[col]).map(col => {
+                        {columns.map(col => {
                           if (col === 'rowColor') {
                             return <td key={col}>{row.rowColor}</td>;
                           }
