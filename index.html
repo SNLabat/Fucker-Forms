@@ -2,23 +2,17 @@
 <html>
 <head>
   <title>Fucker Forms</title>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- React / ReactDOM -->
   <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-  <!-- Babel for in-browser transpiling -->
+  <!-- Babel for in-browser transpiling (for demos) -->
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
-
-  <!-- Papa Parse (CSV) -->
+  <!-- Papa Parse for CSV -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-  <!-- XLSX library (Excel) -->
+  <!-- XLSX library -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-  <!-- react-window for virtualization -->
-  <script src="https://unpkg.com/react-window/umd/react-window.development.js"></script>
-  <!-- jsPDF for PDF export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <style>
     /* ---------------------------------
@@ -57,6 +51,30 @@
       cursor: pointer;
       text-align: left;
     }
+    /* color-coded row classes */
+    .row-green {
+      background-color: rgba(144, 238, 144, 0.2);
+    }
+    .row-yellow {
+      background-color: rgba(255, 255, 224, 0.2);
+    }
+    .row-red {
+      background-color: rgba(255, 182, 182, 0.2);
+    }
+
+    input[type="file"],
+    input[type="text"],
+    input[type="number"] {
+      margin: 5px;
+      padding: 8px;
+      border-radius: 4px;
+    }
+    button {
+      padding: 6px 12px;
+      margin: 0 4px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
     .header-controls {
       display: flex;
       justify-content: flex-start;
@@ -65,37 +83,19 @@
       margin-bottom: 20px;
       flex-wrap: wrap;
     }
-    .filters {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-    }
-    button {
-      padding: 6px 12px;
-      margin: 0 4px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    button:disabled {
-      cursor: not-allowed;
-    }
-    input[type="file"],
-    input[type="text"],
-    input[type="number"] {
-      margin: 5px;
-      padding: 8px;
-      border-radius: 4px;
-    }
     .save-button {
       padding: 10px 20px;
       border-radius: 4px;
       cursor: pointer;
     }
     .save-button:disabled {
-      background-color: #cccccc !important;
-      color: #666666 !important;
       cursor: not-allowed;
+    }
+    .filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
     }
     .instructions {
       margin-top: 20px;
@@ -119,21 +119,6 @@
     }
     .error-box h2 {
       margin-top: 0;
-    }
-    .summary-row {
-      font-weight: bold;
-      background: rgba(0, 0, 0, 0.1);
-    }
-
-    /* row color-coded classes */
-    .row-green {
-      background-color: rgba(144, 238, 144, 0.2);
-    }
-    .row-yellow {
-      background-color: rgba(255, 255, 224, 0.2);
-    }
-    .row-red {
-      background-color: rgba(255, 182, 182, 0.2);
     }
 
     /* The top-right logo */
@@ -193,15 +178,24 @@
     .dark-mode .save-button:hover {
       background-color: #45a049;
     }
+    .dark-mode .save-button:disabled {
+      background-color: #cccccc;
+      color: #666;
+    }
+    .dark-mode .instructions {
+      background-color: #202020;
+      color: #fff;
+    }
     .dark-mode .error-box {
       background-color: #660000;
       color: #fff;
     }
+
     /* ---------------------------------
        3) Windows 95 (Fucker 95) theme
     ----------------------------------*/
     body.win95-mode {
-      background-color: #008080; 
+      background-color: #008080; /* teal reminiscent of Win95 wallpaper */
       color: #000;
     }
     .win95-mode .container {
@@ -279,8 +273,9 @@
   </style>
 </head>
 
-<!-- Default to dark-mode -->
+<!-- default to "dark-mode" -->
 <body class="dark-mode">
+  <!-- The top-right logo. Adjust path if needed. -->
   <img
     class="logo-top-right"
     src="./Fucker95.png"
@@ -291,28 +286,20 @@
 
   <script type="text/babel">
     const { useState, useMemo, useEffect } = React;
-    const PapaLib = window.Papa;
     const XLSXLib = window.XLSX;
-    const { FixedSizeList } = window.ReactWindow;
-    const { jsPDF } = window.jspdf;
+    const PapaLib = window.Papa;
 
-    // Main App component
     function App() {
-      // Data, columns, row colors, filters, etc.
       const [data, setData] = useState([]);
       const [columns, setColumns] = useState([]);
-      const [rowColors, setRowColors] = useState({});
-      const [filters, setFilters] = useState({});
       const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+      const [filters, setFilters] = useState({});
+      const [rowColors, setRowColors] = useState({});
       const [sortDirection, setSortDirection] = useState('asc');
       const [errorMessage, setErrorMessage] = useState('');
       const [theme, setTheme] = useState('dark-mode'); // default
-      const [visibleColumns, setVisibleColumns] = useState([]); // for toggling columns
 
-      // Constants
-      const REQUIRED_COLUMN = 'amount';
-
-      // On initial mount, load from localStorage if available
+      // On initial mount, try loading from localStorage
       useEffect(() => {
         const savedState = localStorage.getItem('fuckerFormsState');
         if (savedState) {
@@ -324,26 +311,31 @@
             if (parsed.sortConfig && typeof parsed.sortConfig === 'object') setSortConfig(parsed.sortConfig);
             if (parsed.filters && typeof parsed.filters === 'object') setFilters(parsed.filters);
             if (parsed.theme) setTheme(parsed.theme);
-            if (parsed.visibleColumns && Array.isArray(parsed.visibleColumns)) {
-              setVisibleColumns(parsed.visibleColumns);
-            }
           } catch (err) {
             console.error('Error reading local storage:', err);
           }
         }
       }, []);
 
-      // Apply theme to <body>
+      // Apply theme
       useEffect(() => {
         document.body.className = theme;
       }, [theme]);
 
-      // Has valid data if we have the REQUIRED_COLUMN and at least 1 row
+      const REQUIRED_COLUMN = 'amount';
+
+      function resetState() {
+        setData([]);
+        setColumns([]);
+        setRowColors({});
+        setFilters({});
+        setSortConfig({ key: null, direction: 'asc' });
+      }
+
       const hasValidData = useMemo(() => {
         return columns.includes(REQUIRED_COLUMN) && data.length > 0;
       }, [columns, data]);
 
-      // Show/hide error
       function showError(msg) {
         setErrorMessage(msg);
       }
@@ -351,41 +343,10 @@
         setErrorMessage('');
       }
 
-      // Reset entire state
-      function resetState() {
-        setData([]);
-        setColumns([]);
-        setRowColors({});
-        setFilters({});
-        setSortConfig({ key: null, direction: 'asc' });
-        setSortDirection('asc');
-        setVisibleColumns([]);
-      }
-
-      // Theme change
       function handleThemeChange(e) {
         setTheme(e.target.value);
       }
 
-      // Toggles (hide/show) columns
-      useEffect(() => {
-        // If columns come in and we haven't set visible columns yet, default all columns to visible
-        if (columns.length && !visibleColumns.length) {
-          setVisibleColumns(columns);
-        }
-      }, [columns, visibleColumns]);
-
-      function toggleColumn(col) {
-        setVisibleColumns(prev => {
-          if (prev.includes(col)) {
-            return prev.filter(c => c !== col);
-          } else {
-            return [...prev, col];
-          }
-        });
-      }
-
-      // CSV or XLSX file upload
       function handleFileUpload(e) {
         const file = e.target.files[0];
         if (!file) {
@@ -394,6 +355,7 @@
         }
         resetState();
         clearError();
+
         try {
           const lowerName = file.name.toLowerCase();
           if (lowerName.endsWith('.csv')) {
@@ -408,7 +370,7 @@
         }
       }
 
-      // Parse CSV (case-insensitive headers)
+      // CSV parse (case-insensitive headers)
       function parseCSVCaseInsensitive(file) {
         PapaLib.parse(file, {
           header: true,
@@ -424,13 +386,11 @@
               showError(`Error: Required column "${REQUIRED_COLUMN}" is missing in CSV (case-insensitive).`);
               return;
             }
-            // Add extra columns if missing
             let newCols = [...fields];
             if (!newCols.includes('difference')) newCols.push('difference');
             if (!newCols.includes('contributed')) newCols.push('contributed');
             if (!newCols.includes('rowColor')) newCols.push('rowColor');
 
-            // build rows
             const rows = parsedData.map((row, index) => {
               const amt = parseFloat(sanitizeNumberString(row.amount)) || 0;
               const contrib = parseFloat(sanitizeNumberString(row.contributed)) || 0;
@@ -452,7 +412,7 @@
         });
       }
 
-      // Parse XLSX
+      // XLSX parse
       function parseXLSX(file) {
         const reader = new FileReader();
         reader.onload = (evt) => {
@@ -470,15 +430,12 @@
               showError('Error: Excel sheet is empty.');
               return;
             }
-            // row 0 is headers
             let headers = jsonData[0].map(h => String(h || '').toLowerCase().trim());
             const rowsArr = jsonData.slice(1);
-
             if (!headers.includes(REQUIRED_COLUMN)) {
               showError(`Error: Required column "${REQUIRED_COLUMN}" missing in XLSX (case-insensitive).`);
               return;
             }
-            // ensure difference, contributed, rowColor columns exist
             if (!headers.includes('difference')) headers.push('difference');
             if (!headers.includes('contributed')) headers.push('contributed');
             if (!headers.includes('rowColor')) headers.push('rowColor');
@@ -506,13 +463,11 @@
         reader.readAsBinaryString(file);
       }
 
-      // Utility to remove non-numeric chars
       function sanitizeNumberString(val) {
         if (val === null || val === undefined) return '';
         return String(val).replace(/[^\d.-]/g, '');
       }
 
-      // Compute color automatically, if not manually overridden
       function computeAutoColor(row) {
         try {
           if (!hasValidData) return '';
@@ -528,7 +483,6 @@
         }
       }
 
-      // handle changes to "contributed" field
       function handleContributedChange(uniqueKey, newVal) {
         if (!hasValidData) {
           showError('No valid data loaded.');
@@ -540,14 +494,10 @@
               const amt = parseFloat(sanitizeNumberString(row.amount)) || 0;
               const c = parseFloat(sanitizeNumberString(newVal)) || 0;
               const diff = c - amt;
-              // check if rowColors has a manual override
-              const manualColor = rowColors[uniqueKey];
-              const updated = {
-                ...row,
-                contributed: newVal,
-                difference: diff.toString(),
-                rowColor: manualColor ? manualColor : computeAutoColor({ ...row, contributed: newVal })
-              };
+              const updated = { ...row, contributed: newVal, difference: diff.toString() };
+              // check if we have a manual override in rowColors
+              const manual = rowColors[uniqueKey];
+              updated.rowColor = manual ? manual : computeAutoColor(updated);
               return updated;
             }
             return row;
@@ -557,7 +507,6 @@
         }
       }
 
-      // handle manual row color override
       function handleRowColor(uniqueKey, color) {
         if (!hasValidData) {
           showError('No valid data loaded.');
@@ -573,14 +522,14 @@
             }
             return updated;
           });
+
           setData(prev => prev.map(row => {
             if (row._uniqueKey === uniqueKey) {
               if (color === 'clear') {
-                // remove manual override, compute auto
-                const newColor = computeAutoColor(row);
-                return { ...row, rowColor: newColor };
+                return { ...row, rowColor: '' };
+              } else {
+                return { ...row, rowColor: color };
               }
-              return { ...row, rowColor: color };
             }
             return row;
           }));
@@ -589,12 +538,10 @@
         }
       }
 
-      // handle filter text
       function handleFilter(column, value) {
         setFilters(prev => ({ ...prev, [column]: value }));
       }
 
-      // basic ascending/descending sort by "amount"
       function handleAmountSort() {
         if (!hasValidData) {
           showError('No valid data to sort.');
@@ -604,7 +551,6 @@
         setSortConfig({ key: 'amount', direction: sortDirection });
       }
 
-      // general-purpose column sort
       function handleSort(col) {
         if (!hasValidData) {
           showError('No valid data loaded. Cannot sort.');
@@ -620,43 +566,30 @@
         }
       }
 
-      // filtered & sorted data
+      // Enhanced multi-word search, case-insensitive
       const filteredAndSortedData = useMemo(() => {
         if (!hasValidData) return [];
         try {
           let processed = [...data];
 
-          // multi-word filters
           Object.keys(filters).forEach(col => {
             const filterVal = (filters[col] || '').trim().toLowerCase();
             if (!filterVal) return;
-            const terms = filterVal.split(/\s+/).filter(t => t);
+
+            const terms = filterVal.split(/\s+/).filter(t => t); // remove empty terms
+
             processed = processed.filter(row => {
               const cellVal = String(row[col] || '').toLowerCase();
-              // each term must be present in cellVal
               return terms.every(term => cellVal.includes(term));
             });
           });
 
-          // handle sort
-          if (sortConfig.key) {
-            const { key, direction } = sortConfig;
-            // if key == 'amount' or 'difference' (numeric?), parse as float
-            if (['amount', 'difference', 'contributed'].includes(key)) {
-              processed.sort((a, b) => {
-                const aVal = parseFloat(sanitizeNumberString(a[key])) || 0;
-                const bVal = parseFloat(sanitizeNumberString(b[key])) || 0;
-                return direction === 'asc' ? aVal - bVal : bVal - aVal;
-              });
-            } else {
-              // string sort
-              processed.sort((a, b) => {
-                const aVal = String(a[key] || '');
-                const bVal = String(b[key] || '');
-                if (direction === 'asc') return aVal.localeCompare(bVal);
-                else return bVal.localeCompare(aVal);
-              });
-            }
+          if (sortConfig.key === 'amount') {
+            processed.sort((a, b) => {
+              const aVal = parseFloat(sanitizeNumberString(a.amount || '')) || 0;
+              const bVal = parseFloat(sanitizeNumberString(b.amount || '')) || 0;
+              return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+            });
           }
           return processed;
         } catch (err) {
@@ -665,27 +598,6 @@
         }
       }, [data, filters, sortConfig, hasValidData]);
 
-      // Summaries for numeric columns in the filtered data
-      const summaryRow = useMemo(() => {
-        if (!hasValidData || !filteredAndSortedData.length) return null;
-        // find numeric columns among the currently visible columns
-        const numericCols = visibleColumns.filter(col => {
-          const firstVal = filteredAndSortedData[0][col];
-          const num = parseFloat(sanitizeNumberString(firstVal));
-          return !isNaN(num);
-        });
-        const sums = {};
-        numericCols.forEach(nc => {
-          let total = 0;
-          filteredAndSortedData.forEach(row => {
-            total += parseFloat(sanitizeNumberString(row[nc])) || 0;
-          });
-          sums[nc] = total;
-        });
-        return sums;
-      }, [filteredAndSortedData, visibleColumns, hasValidData]);
-
-      // Helper for XLSX export: string -> ArrayBuffer
       function s2ab(s) {
         const buf = new ArrayBuffer(s.length);
         const view = new Uint8Array(buf);
@@ -695,14 +607,12 @@
         return buf;
       }
 
-      // Export to XLSX with color styling
       function handleExportXLSX() {
         if (!hasValidData || !filteredAndSortedData.length) {
           showError('No valid data to export.');
           return;
         }
         try {
-          // build data that we want to save
           const dataToSave = filteredAndSortedData.map(row => {
             const newRow = { ...row };
             delete newRow._uniqueKey;
@@ -711,10 +621,9 @@
           const wb = XLSXLib.utils.book_new();
           const ws = XLSXLib.utils.json_to_sheet(dataToSave);
 
-          // Apply row colors if any
           filteredAndSortedData.forEach((row, idx) => {
             const colorName = row.rowColor || '';
-            if (!colorName) return; // no color
+            if (!colorName) return;
             const colorMap = {
               green: {
                 patternType: 'solid',
@@ -734,9 +643,8 @@
             };
             const style = colorMap[colorName];
             if (!style) return;
-            // apply style to each column cell in that row
+
             columns.forEach((col, colIndex) => {
-              // row index in sheet is offset by +1 for headers
               const cellRef = XLSXLib.utils.encode_cell({ r: idx + 1, c: colIndex });
               if (!ws[cellRef]) ws[cellRef] = {};
               ws[cellRef].s = {
@@ -751,7 +659,6 @@
             });
           });
 
-          // some minimal column widths
           const colWidths = columns.map(col => ({
             wch: col === 'contributed' ? 15 : Math.max(col.length, 10)
           }));
@@ -767,45 +674,11 @@
           a.click();
           URL.revokeObjectURL(url);
         } catch (err) {
-          showError(`Error exporting XLSX file: ${err.message}`);
+          showError(`Error exporting file: ${err.message}`);
         }
       }
 
-      // Export to PDF
-      function handleExportPDF() {
-        if (!hasValidData || !filteredAndSortedData.length) {
-          showError('No valid data to export to PDF.');
-          return;
-        }
-        try {
-          const doc = new jsPDF();
-          doc.setFontSize(12);
-          doc.text('Fucker Forms PDF Export', 10, 10);
-
-          let y = 20;
-          // Print column headers (only the visible ones + "Row Actions" placeholder)
-          const headerLine = ['Row Actions', ...visibleColumns].join(' | ');
-          doc.text(headerLine, 10, y);
-          y += 10;
-
-          // Print each row
-          filteredAndSortedData.forEach((row) => {
-            // Build line with only visible columns
-            const rowLine = ['[colors]', ...visibleColumns.map(col => String(row[col] || ''))].join(' | ');
-            doc.text(rowLine, 10, y);
-            y += 6;
-            if (y > 280) {
-              doc.addPage();
-              y = 20;
-            }
-          });
-          doc.save('exported_data.pdf');
-        } catch (err) {
-          showError(`Error exporting PDF: ${err.message}`);
-        }
-      }
-
-      // Save session to localStorage
+      // Save entire app state to localStorage
       function handleSaveSession() {
         try {
           const stateToSave = {
@@ -814,159 +687,41 @@
             rowColors,
             sortConfig,
             filters,
-            theme,
-            visibleColumns
+            theme
           };
           localStorage.setItem('fuckerFormsState', JSON.stringify(stateToSave));
-          alert('Your session has been saved to this browser/device.');
+          alert('Your session has been saved. You can come back to this page later and resume.');
         } catch (err) {
           showError(`Error saving session: ${err.message}`);
         }
       }
 
-      // Clear session from localStorage
+      // Clear local storage
       function handleClearSession() {
         localStorage.removeItem('fuckerFormsState');
-        alert('Session cleared. Data will reset on reload.');
+        alert('Session cleared from local storage. Reload page to start fresh.');
       }
 
-      // Export entire app state to .json
-      function handleExportSessionJSON() {
-        try {
-          const stateToExport = {
-            data,
-            columns,
-            rowColors,
-            filters,
-            sortConfig,
-            theme,
-            visibleColumns
-          };
-          const json = JSON.stringify(stateToExport, null, 2);
-          const blob = new Blob([json], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'fucker_forms_session.json';
-          a.click();
-          URL.revokeObjectURL(url);
-        } catch (err) {
-          showError(`Error exporting session: ${err.message}`);
-        }
-      }
-
-      // Import entire app state from .json
-      function handleImportSessionJSON(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = evt => {
-          try {
-            const imported = JSON.parse(evt.target.result);
-            if (imported.data) setData(imported.data);
-            if (imported.columns) setColumns(imported.columns);
-            if (imported.rowColors) setRowColors(imported.rowColors);
-            if (imported.filters) setFilters(imported.filters);
-            if (imported.sortConfig) setSortConfig(imported.sortConfig);
-            if (imported.theme) setTheme(imported.theme);
-            if (imported.visibleColumns) setVisibleColumns(imported.visibleColumns);
-            alert('Session imported successfully!');
-          } catch (err) {
-            showError(`Error importing session: ${err.message}`);
-          }
-        };
-        reader.readAsText(file);
-      }
-
-      // Sort "amount" or any column, etc. handled above, so let's now build the UI
-
-      // Virtualized row renderer for react-window
-      function VirtualizedRow({ index, style }) {
-        const row = filteredAndSortedData[index];
-        if (!row) return null;
-        const highlightClass = row.rowColor ? `row-${row.rowColor}` : '';
-
-        return (
-          <div style={style}>
-            <table style={{ width: '100%' }}>
-              <tbody>
-                <tr className={highlightClass}>
-                  <td>
-                    <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
-                    <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
-                    <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
-                    <button onClick={() => handleRowColor(row._uniqueKey, 'clear')}>Clear</button>
-                  </td>
-                  {visibleColumns.map(col => {
-                    if (col === 'rowColor') {
-                      return <td key={col}>{row.rowColor}</td>;
-                    }
-                    if (col === 'contributed') {
-                      return (
-                        <td key={col}>
-                          <input
-                            type="text"
-                            value={row.contributed || ''}
-                            onChange={e => handleContributedChange(row._uniqueKey, e.target.value)}
-                          />
-                        </td>
-                      );
-                    }
-                    return <td key={col}>{row[col]}</td>;
-                  })}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        );
-      }
-
-      // The component UI
       return (
         <div className="container">
-          {/* Theme dropdown & Column toggles */}
+          {/* Theme dropdown */}
           <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <label style={{ marginRight: '8px' }}>Theme:</label>
             <select value={theme} onChange={handleThemeChange}>
               <option value="dark-mode">Dark Mode</option>
               <option value="win95-mode">Fucker 95</option>
             </select>
-
-            {columns.length > 0 && (
-              <div>
-                <label style={{ marginRight: '6px' }}>Columns:</label>
-                {columns.map(col => (
-                  <label key={col} style={{ marginRight: '8px' }}>
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns.includes(col)}
-                      onChange={() => toggleColumn(col)}
-                    />
-                    {col}
-                  </label>
-                ))}
-              </div>
-            )}
           </div>
 
-          {/* Header Controls: file input, exports, session save/load */}
           <div className="header-controls">
-            <input
-              type="file"
-              accept=".csv,.xlsx"
-              onChange={handleFileUpload}
-            />
-
+            <input type="file" accept=".csv,.xlsx" onChange={handleFileUpload} />
+            
             <button
               className="save-button"
               onClick={handleExportXLSX}
               disabled={!hasValidData}
             >
-              Export XLSX
-            </button>
-
-            <button onClick={handleExportPDF} disabled={!hasValidData}>
-              Export PDF
+              Export Your Work
             </button>
 
             <button onClick={handleSaveSession}>
@@ -975,25 +730,14 @@
             <button onClick={handleClearSession}>
               Reset Local Session
             </button>
-
-            <button onClick={handleExportSessionJSON}>
-              Export Session (.json)
-            </button>
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleImportSessionJSON}
-              style={{ maxWidth: '200px' }}
-            />
           </div>
 
-          {/* Filters & Sort */}
           <div className="filters-and-sort">
             <div className="filters">
               {['action', 'description', 'done_at', 'amount', 'difference'].map(col => (
                 columns.includes(col) && (
                   <div key={col}>
-                    <label>{col}:</label>
+                    <label>{col}: </label>
                     <input
                       type="text"
                       onChange={e => handleFilter(col, e.target.value)}
@@ -1005,6 +749,7 @@
               ))}
             </div>
             <button
+              className="sort-button"
               onClick={handleAmountSort}
               disabled={!columns.includes('amount') || !hasValidData}
             >
@@ -1012,68 +757,75 @@
             </button>
           </div>
 
-          {/* Virtualized Table */}
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th>Row Actions</th>
-                {visibleColumns.map(col => (
-                  <th
-                    key={col}
-                    onClick={() => handleSort(col)}
-                  >
-                    {col}
-                    {sortConfig.key === col && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-          </table>
-          <div style={{ height: '400px', width: '100%' }}>
-            <FixedSizeList
-              height={400}
-              itemCount={filteredAndSortedData.length}
-              itemSize={38}
-              width="100%"
-              style={{ overflowX: 'hidden', overflowY: 'auto' }}
-            >
-              {VirtualizedRow}
-            </FixedSizeList>
-          </div>
-
-          {/* Summary row for numeric columns */}
-          {summaryRow && Object.keys(summaryRow).length > 0 && (
-            <table style={{ marginTop: '10px', borderCollapse: 'collapse', width: '100%' }}>
-              <tbody>
-                <tr className="summary-row">
-                  <td>Summaries (visible numeric columns):</td>
-                  {visibleColumns.map(col => {
-                    if (summaryRow[col] !== undefined) {
-                      return <td key={col}>{summaryRow[col]}</td>;
-                    }
-                    return <td key={col}></td>;
-                  })}
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Row Actions</th>
+                  {columns.map(col => (
+                    <th
+                      key={col}
+                      onClick={() => handleSort(col)}
+                    >
+                      {col}
+                      {sortConfig.key === col && (
+                        sortConfig.direction === 'asc' ? ' ↑' : ' ↓'
+                      )}
+                    </th>
+                  ))}
                 </tr>
+              </thead>
+              <tbody>
+                {filteredAndSortedData.map(row => {
+                  const highlightClass = row.rowColor ? `row-${row.rowColor}` : '';
+                  return (
+                    <tr key={row._uniqueKey} className={highlightClass}>
+                      <td>
+                        <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
+                        <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
+                        <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
+                        <button onClick={() => handleRowColor(row._uniqueKey, 'clear')}>Clear</button>
+                      </td>
+                      {columns.map(col => {
+                        if (col === 'rowColor') {
+                          return <td key={col}>{row.rowColor}</td>;
+                        }
+                        if (col === 'contributed') {
+                          return (
+                            <td key={col}>
+                              <input
+                                type="text"
+                                value={row.contributed || ''}
+                                onChange={e => handleContributedChange(row._uniqueKey, e.target.value)}
+                              />
+                            </td>
+                          );
+                        }
+                        return <td key={col}>{row[col]}</td>;
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          )}
+          </div>
 
-          {/* Instructions */}
+         {/* Instructions Section */}
           <div className="instructions">
-            <h2>Fucker Forms: Full User Manual</h2>
+            <h2>Fucker Forms User Manual:</h2>
             <ol>
-              <li>Upload a .csv or .xlsx file with at least an <strong>amount</strong> column.</li>
-              <li>Use the column “contributed” to track how much was contributed. The “difference” column = contributed - amount.</li>
-              <li>Click the “Row Actions” buttons to manually color rows or clear colors. If you don’t override, color auto-calculates based on contributed vs. amount.</li>
-              <li>Use multi-word filters in the filter boxes for columns (e.g. filter “salary bonus”).</li>
-              <li>Click “Sort Amount” or click on any column header to sort ascending/descending.</li>
-              <li>Show/hide columns via the checkboxes in “Columns:” (e.g., hide difference if you don’t need it).</li>
-              <li>Scroll large data efficiently thanks to a virtualized table (react-window).</li>
-              <li>Export XLSX, Export PDF, or “Export Session (.json)” to save all data outside the browser.</li>
-              <li>“Save Session (Local)” saves to browser storage so you can refresh and continue later on the same device & browser.</li>
-              <li>Switch between Dark Mode and “Fucker 95” from the Theme dropdown.</li>
+              <li>Upload the CSV exported from the PD account.</li>
+              <li>Filter by action, description, or amount. For example, filter “salary” in descriptions.</li>
+              <li>Click "Sort Amount" to reorder by ascending or descending amounts.</li>
+              <li>Either manually mark a row color, or enter the amount "contributed" to auto-calculate color relative to the amount.</li>
+              <li>“difference” column is <code>(contributed - amount)</code> and updates in real-time.</li>
+              <li>Once finished, click "Export Your Work" to export an XLSX (Excel) file.</li>
+              <li>Use “Save Session (Local)” to store your progress in the browser.  
+                If you come back later (same browser & device), the data will be reloaded automatically.</li>
+              <li>Try a different theme if you prefer a different look!</li>
             </ol>
           </div>
+
 
           {errorMessage && (
             <div className="error-box">
