@@ -376,6 +376,8 @@
       const [errorMessage, setErrorMessage] = useState('');
       // Default theme
       const [theme, setTheme] = useState('dark-mode');
+      // Add this new state for docked rows
+      const [dockedRows, setDockedRows] = useState([]);
 
       // On initial mount, try loading from localStorage
       useEffect(() => {
@@ -788,6 +790,35 @@
         alert('Session cleared from local storage. Reload page to start fresh.');
       }
 
+      // Add this new function to handle docking
+      function handleDockToggle(row) {
+        if (dockedRows.includes(row._uniqueKey)) {
+          // Second click - create summary row
+          const dockedTransactions = data.filter(r => dockedRows.includes(r._uniqueKey));
+          const total = dockedTransactions.reduce((sum, r) => {
+            return sum + (parseFloat(sanitizeNumberString(r.amount)) || 0)
+          }, 0);
+          
+          // Create new summary row
+          const summaryRow = {
+            _uniqueKey: `row-${Date.now()}-summary`,
+            action: 'SUMMARY',
+            description: `Sum of ${dockedTransactions.length} selected rows`,
+            amount: total.toString(),
+            contributed: '',
+            difference: '',
+            rowColor: '',
+            done_at: new Date().toISOString().split('T')[0]
+          };
+          
+          setData(prev => [...prev, summaryRow]);
+          setDockedRows([]); // Clear docked rows
+        } else {
+          // First click - dock the row
+          setDockedRows(prev => [...prev, row._uniqueKey]);
+        }
+      }
+
       // Note the named <React.Fragment> replacing <>...</>
       return (
         <React.Fragment>
@@ -882,9 +913,22 @@
                 <tbody>
                   {filteredAndSortedData.map(row => {
                     const highlightClass = row.rowColor ? `row-${row.rowColor}` : '';
+                    const isDocked = dockedRows.includes(row._uniqueKey);
+                    
                     return (
-                      <tr key={row._uniqueKey} className={highlightClass}>
+                      <tr 
+                        key={row._uniqueKey} 
+                        className={highlightClass}
+                        style={{
+                          // Add a distinctive border for docked rows
+                          outline: isDocked ? '2px solid #4CAF50' : 'none',
+                          backgroundColor: isDocked ? 'rgba(76, 175, 80, 0.1)' : undefined
+                        }}
+                      >
                         <td>
+                          <button onClick={() => handleDockToggle(row)}>
+                            {isDocked ? '✓' : '+'}
+                          </button>
                           <button onClick={() => handleRowColor(row._uniqueKey, 'green')}>Green</button>
                           <button onClick={() => handleRowColor(row._uniqueKey, 'yellow')}>Yellow</button>
                           <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
@@ -919,12 +963,12 @@
               <h2>Fucker Forms User Manual:</h2>
               <ol>
                 <li>Upload the CSV exported from the PD account.</li>
-                <li>Filter by action, description, or amount. For example, filter “salary” in descriptions.</li>
+                <li>Filter by action, description, or amount. For example, filter "salary" in descriptions.</li>
                 <li>Click "Sort Amount" to reorder by ascending or descending amounts.</li>
                 <li>Either manually mark a row color, or enter the amount "contributed" to auto-calculate color relative to the amount.</li>
-                <li>“difference” column is <code>(contributed - amount)</code> and updates in real-time.</li>
+                <li>"difference" column is <code>(contributed - amount)</code> and updates in real-time.</li>
                 <li>Once finished, click "Export Your Work" to export an XLSX (Excel) file.</li>
-                <li>Use “Save Session (Local)” to store your progress in the browser. If you come back later (same browser &amp; device), the data will be reloaded automatically.</li>
+                <li>Use "Save Session (Local)" to store your progress in the browser. If you come back later (same browser &amp; device), the data will be reloaded automatically.</li>
                 <li>Try a different theme if you prefer a different look!</li>
               </ol>
             </div>
@@ -944,4 +988,3 @@
   </script>
 </body>
 </html>
-
