@@ -799,19 +799,20 @@
             return sum + (parseFloat(sanitizeNumberString(r.amount)) || 0)
           }, 0);
           
-          // Create new summary row
+          // Create new summary row with all required fields
           const summaryRow = {
-            _uniqueKey: `row-${Date.now()}-summary`,
+            _uniqueKey: `summary-${Date.now()}`,
             action: 'SUMMARY',
             description: `Sum of ${dockedTransactions.length} selected rows`,
-            amount: total.toString(),
+            amount: total.toFixed(2), // Format to 2 decimal places
             contributed: '',
             difference: '',
             rowColor: '',
             done_at: new Date().toISOString().split('T')[0]
           };
           
-          setData(prev => [...prev, summaryRow]);
+          // Ensure we're properly updating the state with the new row
+          setData(prevData => [...prevData, summaryRow]);
           setDockedRows([]); // Clear docked rows
         } else {
           // First click - dock the row
