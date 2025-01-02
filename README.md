@@ -1,5 +1,8 @@
 # Fucker Forms (https://fuckerforms.com)
 
+v1.1 Changelog
+1) Created a "Fucker-Boy 3000" interface and began working on implementation of session sharing on backend. 
+
 v1.0 Changelog (Note: Site may be in active development while you're using it, if you run into errors please let me know).
 
 1) Upload spreadsheets. They can be either CSV or XLSX with a 2MB upload limit until this can better handle large documents. 
