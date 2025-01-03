@@ -14,6 +14,7 @@
   gtag('config', 'G-YEPPCDNQ5D');
 </script>
 
+
   <!-- React / ReactDOM -->
   <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
@@ -362,37 +363,6 @@
     .pipboy-mode .row-red {
       background-color: rgba(208, 46, 46, 0.2);
     }
-
-    .column-toggles {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin: 10px 0;
-      padding: 10px;
-      border-radius: 4px;
-    }
-
-    .column-toggle {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-
-    .dark-mode .column-toggles {
-      background-color: #404040;
-    }
-
-    .win95-mode .column-toggles {
-      background-color: #C3C7CB;
-      border: 2px solid #808080;
-      border-top-color: #FFFFFF;
-      border-left-color: #FFFFFF;
-    }
-
-    .pipboy-mode .column-toggles {
-      background-color: #0a280f;
-      border: 1px solid #2ed058;
-    }
   </style>
 </head>
 
@@ -416,8 +386,6 @@
       const [errorMessage, setErrorMessage] = useState('');
       // Default theme
       const [theme, setTheme] = useState('dark-mode');
-      // Add new state for visible columns
-      const [visibleColumns, setVisibleColumns] = useState(new Set());
 
       // On initial mount, try loading from localStorage
       useEffect(() => {
@@ -431,7 +399,6 @@
             if (parsed.sortConfig && typeof parsed.sortConfig === 'object') setSortConfig(parsed.sortConfig);
             if (parsed.filters && typeof parsed.filters === 'object') setFilters(parsed.filters);
             if (parsed.theme) setTheme(parsed.theme);
-            if (parsed.visibleColumns) setVisibleColumns(new Set(parsed.visibleColumns));
           } catch (err) {
             console.error('Error reading local storage:', err);
           }
@@ -442,13 +409,6 @@
       useEffect(() => {
         document.body.className = theme;
       }, [theme]);
-
-      // Update useEffect for localStorage to include visibleColumns
-      useEffect(() => {
-        if (columns.length > 0) {
-          setVisibleColumns(new Set(columns));
-        }
-      }, [columns]);
 
       const REQUIRED_COLUMN = 'amount';
 
@@ -749,12 +709,8 @@
         }
         try {
           const dataToSave = filteredAndSortedData.map(row => {
-            const newRow = {};
-            Array.from(visibleColumns).forEach(col => {
-              if (col !== '_uniqueKey') {
-                newRow[col] = row[col];
-              }
-            });
+            const newRow = { ...row };
+            delete newRow._uniqueKey;
             return newRow;
           });
           const wb = XLSXLib.utils.book_new();
@@ -827,7 +783,6 @@
             rowColors,
             sortConfig,
             filters,
-            visibleColumns: Array.from(visibleColumns),
             theme
           };
           localStorage.setItem('fuckerFormsState', JSON.stringify(stateToSave));
@@ -841,19 +796,6 @@
       function handleClearSession() {
         localStorage.removeItem('fuckerFormsState');
         alert('Session cleared from local storage. Reload page to start fresh.');
-      }
-
-      // Add column toggle handler
-      function handleColumnToggle(column) {
-        setVisibleColumns(prev => {
-          const next = new Set(prev);
-          if (next.has(column)) {
-            next.delete(column);
-          } else {
-            next.add(column);
-          }
-          return next;
-        });
       }
 
       // Note the named <React.Fragment> replacing <>...</>
@@ -904,20 +846,6 @@
               </button>
             </div>
 
-            <div className="column-toggles">
-              <strong>Toggle Columns:</strong>
-              {columns.map(col => (
-                <label key={col} className="column-toggle">
-                  <input
-                    type="checkbox"
-                    checked={visibleColumns.has(col)}
-                    onChange={() => handleColumnToggle(col)}
-                  />
-                  {col}
-                </label>
-              ))}
-            </div>
-
             <div className="filters-and-sort">
               <div className="filters">
                 {['action', 'description', 'done_at', 'amount', 'difference'].map(col => (
@@ -948,7 +876,7 @@
                 <thead>
                   <tr>
                     <th>Row Actions</th>
-                    {Array.from(visibleColumns).map(col => (
+                    {columns.map(col => (
                       <th
                         key={col}
                         onClick={() => handleSort(col)}
@@ -972,7 +900,7 @@
                           <button onClick={() => handleRowColor(row._uniqueKey, 'red')}>Red</button>
                           <button onClick={() => handleRowColor(row._uniqueKey, 'clear')}>Clear</button>
                         </td>
-                        {Array.from(visibleColumns).map(col => {
+                        {columns.map(col => {
                           if (col === 'rowColor') {
                             return <td key={col}>{row.rowColor}</td>;
                           }
@@ -1001,12 +929,12 @@
               <h2>Fucker Forms User Manual:</h2>
               <ol>
                 <li>Upload the CSV exported from the PD account.</li>
-                <li>Filter by action, description, or amount. For example, filter "salary" in descriptions.</li>
+                <li>Filter by action, description, or amount. For example, filter “salary” in descriptions.</li>
                 <li>Click "Sort Amount" to reorder by ascending or descending amounts.</li>
                 <li>Either manually mark a row color, or enter the amount "contributed" to auto-calculate color relative to the amount.</li>
-                <li>"difference" column is <code>(contributed - amount)</code> and updates in real-time.</li>
+                <li>“difference” column is <code>(contributed - amount)</code> and updates in real-time.</li>
                 <li>Once finished, click "Export Your Work" to export an XLSX (Excel) file.</li>
-                <li>Use "Save Session (Local)" to store your progress in the browser. If you come back later (same browser &amp; device), the data will be reloaded automatically.</li>
+                <li>Use “Save Session (Local)” to store your progress in the browser. If you come back later (same browser &amp; device), the data will be reloaded automatically.</li>
                 <li>Try a different theme if you prefer a different look!</li>
               </ol>
             </div>
