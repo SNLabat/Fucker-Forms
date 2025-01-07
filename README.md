@@ -1,7 +1,7 @@
 # Fucker Forms (https://fuckerforms.com)
 
 v1.2 Changelog
-Lil Fucker is now live! I trained a chatbot on the SASP SOPs and procedures as well as some major Supreme Court rulings to make a "Clippy" for Fucker Forms.
+1) Lil Fucker is now live! I trained a chatbot on the SASP SOPs and procedures as well as some major Supreme Court rulings to make a "Clippy" for Fucker Forms.
 
 v1.1 Changelog
 1) Created a "Fucker-Boy 3000" interface and began working on implementation of session sharing on backend. 
