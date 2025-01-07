@@ -5,14 +5,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-YEPPCDNQ5D"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-YEPPCDNQ5D"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
 
-  gtag('config', 'G-YEPPCDNQ5D');
-</script>
+    gtag('config', 'G-YEPPCDNQ5D');
+  </script>
 
   <!-- React / ReactDOM -->
   <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
@@ -362,6 +362,30 @@
     .pipboy-mode .row-red {
       background-color: rgba(208, 46, 46, 0.2);
     }
+
+    /* -------------------------------------------------------
+       5) Desktop Icon Styling
+       ------------------------------------------------------- */
+    .desktop-icon {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .desktop-icon img {
+      width: 64px;
+      height: 64px;
+    }
+
+    .desktop-icon label {
+      display: block;
+      margin-top: 4px;
+      color: inherit;
+      font-size: 14px;
+    }
   </style>
 </head>
 
@@ -637,8 +661,9 @@
           showError('No valid data to sort.');
           return;
         }
-        setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
-        setSortConfig({ key: 'amount', direction: sortDirection });
+        const newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+        setSortDirection(newDirection);
+        setSortConfig({ key: 'amount', direction: newDirection });
       }
 
       // General sort for any column
@@ -681,6 +706,15 @@
               const aVal = parseFloat(sanitizeNumberString(a.amount || '')) || 0;
               const bVal = parseFloat(sanitizeNumberString(b.amount || '')) || 0;
               return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+            });
+          } else if (sortConfig.key) {
+            // General sorting for other columns
+            processed.sort((a, b) => {
+              const aVal = String(a[sortConfig.key] || '').toLowerCase();
+              const bVal = String(b[sortConfig.key] || '').toLowerCase();
+              if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+              if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+              return 0;
             });
           }
 
@@ -796,6 +830,14 @@
         localStorage.removeItem('fuckerFormsState');
         alert('Session cleared from local storage. Reload page to start fresh.');
       }
+
+      // Handler for double-click on desktop icon
+      const handleDesktopIconDoubleClick = () => {
+        const url = 'https://alula.github.io/SpaceCadetPinball/';
+        const windowName = `3D Pinball - ${theme}`;
+        const windowFeatures = 'width=640,height=480';
+        window.open(url, windowName, windowFeatures);
+      };
 
       // Note the named <React.Fragment> replacing <>...</>
       return (
@@ -945,6 +987,16 @@
               </div>
             )}
           </div>
+
+          {/* Desktop Icon */}
+          <div
+            className="desktop-icon"
+            title={theme.replace('-', ' ').toUpperCase()}
+            onDoubleClick={handleDesktopIconDoubleClick}
+          >
+            <img src="./3D Pinball.png" alt="3D Pinball" />
+            <label>3D Pinball</label>
+          </div>
         </React.Fragment>
       );
     }
@@ -952,10 +1004,9 @@
     ReactDOM.render(<App />, document.getElementById('root'));
   </script>
   
-<script>
-(function(){if(!window.chatbase||window.chatbase("getState")!=="initialized"){window.chatbase=(...arguments)=>{if(!window.chatbase.q){window.chatbase.q=[]}window.chatbase.q.push(arguments)};window.chatbase=new Proxy(window.chatbase,{get(target,prop){if(prop==="q"){return target.q}return(...args)=>target(prop,...args)}})}const onLoad=function(){const script=document.createElement("script");script.src="https://www.chatbase.co/embed.min.js";script.id="a6KEY-CzeRenB_ZFS3CbQ";script.domain="www.chatbase.co";document.body.appendChild(script)};if(document.readyState==="complete"){onLoad()}else{window.addEventListener("load",onLoad)}})();
-</script>
+  <script>
+  (function(){if(!window.chatbase||window.chatbase("getState")!=="initialized"){window.chatbase=(...arguments)=>{if(!window.chatbase.q){window.chatbase.q=[]}window.chatbase.q.push(arguments)};window.chatbase=new Proxy(window.chatbase,{get(target,prop){if(prop==="q"){return target.q}return(...args)=>target(prop,...args)}})}const onLoad=function(){const script=document.createElement("script");script.src="https://www.chatbase.co/embed.min.js";script.id="a6KEY-CzeRenB_ZFS3CbQ";script.domain="www.chatbase.co";document.body.appendChild(script)};if(document.readyState==="complete"){onLoad()}else{window.addEventListener("load", onLoad)}})();
+  </script>
 
 </body>
 </html>
-
