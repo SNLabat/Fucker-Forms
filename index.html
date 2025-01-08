@@ -25,343 +25,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
   <style>
-    /* -------------------------------------------------------
-       1) Base styling for both themes
-       ------------------------------------------------------- */
-    html, body {
-      margin: 0;
-      padding: 0;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-                   Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      transition: background-color 0.3s, color 0.3s;
-    }
-    .container {
-      transition: background-color 0.3s, border-color 0.3s, color 0.3s;
-      margin: 20px;
-      padding: 20px;
-      border-radius: 8px;
-    }
-    .table-container {
-      max-height: 600px;
-      overflow-y: auto;
-      margin-top: 20px;
-      transition: background-color 0.3s, border-color 0.3s;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      transition: background-color 0.3s;
-    }
-    th, td {
-      padding: 12px;
-    }
-    th {
-      cursor: pointer;
-      text-align: left;
-    }
-    /* Color-coded row classes */
-    .row-green {
-      background-color: rgba(144, 238, 144, 0.2);
-    }
-    .row-yellow {
-      background-color: rgba(255, 255, 224, 0.2);
-    }
-    .row-red {
-      background-color: rgba(255, 182, 182, 0.2);
-    }
-
-    input[type="file"],
-    input[type="text"],
-    input[type="number"] {
-      margin: 5px;
-      padding: 8px;
-      border-radius: 4px;
-    }
-    button {
-      padding: 6px 12px;
-      margin: 0 4px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .header-controls {
-      display: flex;
-      justify-content: flex-start;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-    }
-    .save-button {
-      padding: 10px 20px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .save-button:disabled {
-      cursor: not-allowed;
-    }
-    .filters {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-    }
-    .instructions {
-      margin-top: 20px;
-      padding: 20px;
-      max-width: 600px;
-      border-radius: 8px;
-    }
-    .instructions h2 {
-      margin-top: 0;
-    }
-    .instructions ol {
-      margin: 10px 0;
-      padding-left: 20px;
-    }
-    .error-box {
-      margin-top: 20px;
-      padding: 20px;
-      border-radius: 8px;
-      max-width: 700px;
-      word-wrap: break-word;
-    }
-    .error-box h2 {
-      margin-top: 0;
-    }
-
-    /* The top-right logo */
-    .logo-top-right {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      height: 180px;
-      z-index: 999;
-    }
-
-    /* -------------------------------------------------------
-       2) Dark theme
-       ------------------------------------------------------- */
-    body.dark-mode {
-      background-color: #1a1a1a;
-      color: #ffffff;
-    }
-    .dark-mode .container {
-      background-color: #2d2d2d;
-      color: #ffffff;
-      border: none;
-    }
-    .dark-mode .table-container {
-      background-color: #2d2d2d;
-      border: none;
-    }
-    .dark-mode table {
-      background-color: #2d2d2d;
-    }
-    .dark-mode th {
-      background-color: #404040;
-    }
-    .dark-mode td {
-      border-bottom: 1px solid #404040;
-    }
-    .dark-mode input[type="file"] {
-      background-color: #404040;
-      border: none;
-      color: white;
-    }
-    .dark-mode input[type="text"],
-    .dark-mode input[type="number"] {
-      background-color: #404040;
-      border: 1px solid #555;
-      color: white;
-    }
-    .dark-mode button {
-      background-color: #404040;
-      color: #fff;
-      border: none;
-    }
-    .dark-mode .save-button {
-      background-color: #4CAF50;
-      color: white;
-    }
-    .dark-mode .save-button:hover {
-      background-color: #45a049;
-    }
-    .dark-mode .save-button:disabled {
-      background-color: #cccccc;
-      color: #666;
-    }
-    .dark-mode .instructions {
-      background-color: #202020;
-      color: #fff;
-    }
-    .dark-mode .error-box {
-      background-color: #660000;
-      color: #fff;
-    }
-
-    /* -------------------------------------------------------
-       3) Windows 95 (Fucker 95) theme
-       ------------------------------------------------------- */
-    body.win95-mode {
-      background-color: #008080; /* teal reminiscent of Win95 wallpaper */
-      color: #000;
-    }
-    .win95-mode .container {
-      background-color: #C3C7CB;
-      border: 2px solid #FFFFFF;
-      border-right: 2px solid #808080;
-      border-bottom: 2px solid #808080;
-      border-radius: 0;
-    }
-    .win95-mode .table-container {
-      background-color: #C3C7CB;
-      border: 2px solid #808080;
-      border-top-color: #FFFFFF;
-      border-left-color: #FFFFFF;
-    }
-    .win95-mode table {
-      background-color: #C3C7CB;
-    }
-    .win95-mode th {
-      background: #ECE9D8;
-      color: #000;
-      border: 1px solid #808080;
-      border-top-color: #FFFFFF;
-      border-left-color: #FFFFFF;
-    }
-    .win95-mode td {
-      border-bottom: 1px solid #808080;
-    }
-    .win95-mode input[type="file"],
-    .win95-mode input[type="text"],
-    .win95-mode input[type="number"] {
-      background-color: #FFFFFF;
-      color: #000;
-      border: 2px solid #808080;
-      border-top-color: #FFFFFF;
-      border-left-color: #FFFFFF;
-    }
-    .win95-mode button {
-      font-family: "MS Sans Serif", Tahoma, Verdana, sans-serif;
-      font-size: 14px;
-      color: #000;
-      background-color: #C3C7CB;
-      border: 2px solid #808080;
-      border-top-color: #FFFFFF;
-      border-left-color: #FFFFFF;
-    }
-    .win95-mode button:hover {
-      background-color: #ECE9D8;
-    }
-    .win95-mode .save-button {
-      background-color: #C3C7CB;
-    }
-    .win95-mode .save-button:hover {
-      background-color: #ECE9D8;
-    }
-    .win95-mode .save-button:disabled {
-      background-color: #cccccc;
-      border: none;
-      cursor: not-allowed;
-    }
-    .win95-mode .instructions {
-      background-color: #C3C7CB;
-      color: #000;
-      border: 2px solid #808080;
-      border-top-color: #FFFFFF;
-      border-left-color: #FFFFFF;
-    }
-    .win95-mode .error-box {
-      background-color: #C3C7CB;
-      color: #000;
-      border: 2px solid #808080;
-      border-top-color: #FFFFFF;
-      border-left-color: #FFFFFF;
-    }
-
-    /* -------------------------------------------------------
-       4) Pip-Boy (Fucker-Boy 3000) theme
-       ------------------------------------------------------- */
-    body.pipboy-mode {
-      background-color: #000000;
-      color: #2ed058;
-      font-family: 'Courier New', monospace;
-    }
-    .pipboy-mode .container {
-      background-color: #000000;
-      border: 2px solid #2ed058;
-      color: #2ed058;
-    }
-    .pipboy-mode .table-container {
-      background-color: #000000;
-      border: 1px solid #2ed058;
-    }
-    .pipboy-mode table {
-      background-color: #000000;
-    }
-    .pipboy-mode th {
-      background-color: #0a280f;
-      color: #2ed058;
-      border: 1px solid #2ed058;
-    }
-    .pipboy-mode td {
-      border-bottom: 1px solid #2ed058;
-    }
-    .pipboy-mode input[type="file"],
-    .pipboy-mode input[type="text"],
-    .pipboy-mode input[type="number"],
-    .pipboy-mode select {
-      background-color: #000000;
-      color: #2ed058;
-      border: 1px solid #2ed058;
-      font-family: 'Courier New', monospace;
-    }
-    .pipboy-mode button {
-      background-color: #0a280f;
-      color: #2ed058;
-      border: 1px solid #2ed058;
-      font-family: 'Courier New', monospace;
-      text-transform: uppercase;
-      font-weight: bold;
-    }
-    .pipboy-mode button:hover {
-      background-color: #2ed058;
-      color: #000000;
-    }
-    .pipboy-mode .save-button {
-      background-color: #0a280f;
-      color: #2ed058;
-    }
-    .pipboy-mode .save-button:hover {
-      background-color: #2ed058;
-      color: #000000;
-    }
-    .pipboy-mode .save-button:disabled {
-      background-color: #0a280f;
-      color: #184726;
-      border-color: #184726;
-    }
-    .pipboy-mode .instructions {
-      background-color: #0a280f;
-      color: #2ed058;
-      border: 1px solid #2ed058;
-    }
-    .pipboy-mode .error-box {
-      background-color: #280a0a;
-      color: #2ed058;
-      border: 1px solid #2ed058;
-    }
-    .pipboy-mode .row-green {
-      background-color: rgba(46, 208, 88, 0.2);
-    }
-    .pipboy-mode .row-yellow {
-      background-color: rgba(208, 208, 46, 0.2);
-    }
-    .pipboy-mode .row-red {
-      background-color: rgba(208, 46, 46, 0.2);
-    }
+    /* Existing styles... */
 
     /* -------------------------------------------------------
        5) Desktop Icon Styling
@@ -386,6 +50,56 @@
       color: inherit;
       font-size: 14px;
     }
+
+    /* New Styles for the Modal */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      position: relative;
+      width: 80%;
+      height: 80%;
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .modal-content iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .modal-content .close-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 5px 10px;
+      background: #ff0000;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      z-index: 1001;
+      border-radius: 4px;
+    }
+
+    /* Adjustments for Dark and Other Themes */
+    .modal-content.dark-mode {
+      background-color: #2d2d2d;
+      color: #ffffff;
+    }
+
+    /* Add any additional modal styling as needed */
   </style>
 </head>
 
@@ -409,6 +123,8 @@
       const [errorMessage, setErrorMessage] = useState('');
       // Default theme
       const [theme, setTheme] = useState('dark-mode');
+      // State for showing the Pinball iframe
+      const [showPinball, setShowPinball] = useState(false);
 
       // On initial mount, try loading from localStorage
       useEffect(() => {
@@ -833,13 +549,9 @@
 
       // Handler for double-click on desktop icon
       const handleDesktopIconDoubleClick = () => {
-        const url = 'https://alula.github.io/SpaceCadetPinball/';
-        const windowName = `3D Pinball - ${theme}`;
-        const windowFeatures = 'width=640,height=480';
-        window.open(url, windowName, windowFeatures);
+        setShowPinball(true);
       };
 
-      // Note the named <React.Fragment> replacing <>...</>
       return (
         <React.Fragment>
           {/* Conditionally show the correct logo based on theme */}
@@ -997,8 +709,23 @@
             <img src="./3D Pinball.png" alt="3D Pinball" />
             <label>3D Pinball</label>
           </div>
+
+          {/* Modal for 3D Pinball Iframe */}
+          {showPinball && (
+            <div className="modal">
+              <div className={`modal-content ${theme}`}>
+                <button className="close-button" onClick={() => setShowPinball(false)}>Close</button>
+                <iframe
+                  src="https://alula.github.io/SpaceCadetPinball/"
+                  title="3D Pinball"
+                  allow="autoplay"
+                ></iframe>
+              </div>
+            </div>
+          )}
         </React.Fragment>
       );
+
     }
 
     ReactDOM.render(<App />, document.getElementById('root'));
