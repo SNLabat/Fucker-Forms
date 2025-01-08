@@ -36,9 +36,6 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
                    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       transition: background-color 0.3s, color 0.3s;
-      position: relative;
-      height: 100vh;
-      overflow: hidden;
     }
     .container {
       transition: background-color 0.3s, border-color 0.3s, color 0.3s;
@@ -372,7 +369,7 @@
     .desktop-icon {
       position: fixed;
       bottom: 10px;
-      left: 10px;
+      /* Left offset will differ for each icon so they don't overlap */
       text-align: center;
       cursor: pointer;
       user-select: none;
@@ -388,139 +385,6 @@
       margin-top: 4px;
       color: inherit;
       font-size: 14px;
-    }
-
-    /* -------------------------------------------------------
-       6) WranglerAMP Styling (Winamp-like)
-       ------------------------------------------------------- */
-    .wrangleramp-window {
-      position: fixed;
-      top: 100px;
-      left: 100px;
-      width: 500px;
-      background-color: #000000;
-      border: 2px solid #1E1E1E;
-      border-radius: 6px;
-      z-index: 1000;
-      box-shadow: 0 0 15px rgba(0,0,0,0.7);
-      color: #FFFFFF;
-      font-family: Arial, sans-serif;
-    }
-
-    .wrangleramp-header {
-      background: linear-gradient(to bottom, #1E1E1E, #000000);
-      padding: 10px;
-      cursor: move;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 2px solid #333333;
-    }
-
-    .wrangleramp-header h3 {
-      margin: 0;
-      font-size: 16px;
-      color: #FFFFFF;
-      font-weight: bold;
-    }
-
-    .wrangleramp-close {
-      background: none;
-      border: none;
-      color: #FFFFFF;
-      font-size: 18px;
-      cursor: pointer;
-    }
-
-    .wrangleramp-body {
-      padding: 10px;
-      background-color: #121212;
-    }
-
-    .wrangleramp-playlist {
-      max-height: 200px;
-      overflow-y: auto;
-      margin-bottom: 10px;
-      background-color: #1E1E1E;
-      padding: 5px;
-      border-radius: 4px;
-    }
-
-    .wrangleramp-playlist ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-
-    .wrangleramp-playlist li {
-      padding: 5px 10px;
-      cursor: pointer;
-      border-bottom: 1px solid #333333;
-      color: #CCCCCC;
-    }
-
-    .wrangleramp-playlist li:hover,
-    .wrangleramp-playlist li.active {
-      background-color: #333333;
-      color: #FFFFFF;
-    }
-
-    .wrangleramp-controls {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
-    .wrangleramp-controls button {
-      background-color: #1E1E1E;
-      border: 1px solid #333333;
-      color: #FFFFFF;
-      padding: 8px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-
-    .wrangleramp-controls button:hover {
-      background-color: #333333;
-    }
-
-    .wrangleramp-title {
-      text-align: center;
-      margin-top: 10px;
-      font-size: 14px;
-      color: #FFFFFF;
-    }
-
-    /* Progress Bar */
-    .wrangleramp-progress {
-      width: 100%;
-      height: 10px;
-      background-color: #333333;
-      border-radius: 5px;
-      margin-top: 10px;
-      cursor: pointer;
-      position: relative;
-    }
-
-    .wrangleramp-progress-filled {
-      height: 100%;
-      background-color: #1E90FF;
-      width: 0%;
-      border-radius: 5px;
-    }
-
-    /* Volume Control */
-    .wrangleramp-volume {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      margin-top: 10px;
-    }
-
-    .wrangleramp-volume input[type="range"] {
-      width: 100px;
     }
   </style>
 </head>
@@ -546,8 +410,15 @@
       // Default theme
       const [theme, setTheme] = useState('dark-mode');
 
-      // State for WranglerAMP
+      // ---------------------------
+      // NEW STATE + HANDLER for WranglerAMP
+      // ---------------------------
       const [showWranglerAMP, setShowWranglerAMP] = useState(false);
+
+      function handleWranglerAMPDoubleClick() {
+        setShowWranglerAMP(true);
+      }
+      // ---------------------------
 
       // On initial mount, try loading from localStorage
       useEffect(() => {
@@ -971,22 +842,119 @@
       }
 
       // Handler for double-click on 3D Pinball desktop icon
-      const handlePinballDoubleClick = () => {
+      const handleDesktopIconDoubleClick = () => {
         const url = 'https://alula.github.io/SpaceCadetPinball/';
         const windowName = `3D Pinball - ${theme}`;
         const windowFeatures = 'width=640,height=480';
         window.open(url, windowName, windowFeatures);
       };
 
-      // Handler for double-click on WranglerAMP desktop icon
-      const handleWranglerAMPDoubleClick = () => {
-        setShowWranglerAMP(true);
-      };
+      // ---------------------------------------
+      // WranglerAMP "Winamp-like" MP3 Player
+      // ---------------------------------------
+      function WranglerAMP({ onClose }) {
+        // List of MP3s in the main directory (update these to your real MP3 filenames)
+        const mp3Playlist = [
+          "./track01.mp3",
+          "./track02.mp3",
+          "./track03.mp3"
+        ];
 
-      // Function to close WranglerAMP window
-      const closeWranglerAMP = () => {
-        setShowWranglerAMP(false);
-      };
+        const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+        const audioRef = useRef(null);
+
+        // Load & autoplay whenever currentTrackIndex changes
+        useEffect(() => {
+          if (audioRef.current) {
+            audioRef.current.src = mp3Playlist[currentTrackIndex];
+            audioRef.current.load();
+            audioRef.current.play().catch(() => {
+              // If autoplay is blocked, user must click Play
+            });
+          }
+        }, [currentTrackIndex]);
+
+        function handlePlay() {
+          if (audioRef.current) {
+            audioRef.current.play();
+          }
+        }
+
+        function handlePause() {
+          if (audioRef.current) {
+            audioRef.current.pause();
+          }
+        }
+
+        function handleStop() {
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+          }
+        }
+
+        function handleNext() {
+          setCurrentTrackIndex((prevIndex) =>
+            (prevIndex + 1) % mp3Playlist.length
+          );
+        }
+
+        function handlePrev() {
+          setCurrentTrackIndex((prevIndex) =>
+            (prevIndex - 1 + mp3Playlist.length) % mp3Playlist.length
+          );
+        }
+
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              top: '100px',
+              left: '100px',
+              width: '460px',
+              height: '300px',
+              backgroundColor: '#333',
+              color: '#fff',
+              border: '2px solid #000',
+              zIndex: 9999,
+              fontFamily: 'sans-serif',
+            }}
+          >
+            {/* Title bar / close button */}
+            <div style={{
+              backgroundColor: '#444',
+              padding: '6px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <span style={{ fontWeight: 'bold' }}>WranglerAMP</span>
+              <button onClick={onClose} style={{ cursor: 'pointer' }}>
+                X
+              </button>
+            </div>
+
+            {/* "Winamp" display area */}
+            <div style={{ padding: '10px' }}>
+              <div style={{ marginBottom: '10px', fontWeight: 'bold' }}>
+                Now Playing: {mp3Playlist[currentTrackIndex]}
+              </div>
+
+              {/* Playback controls */}
+              <div>
+                <button onClick={handlePlay}>Play</button>
+                <button onClick={handlePause}>Pause</button>
+                <button onClick={handleStop}>Stop</button>
+                <button onClick={handlePrev}>Prev</button>
+                <button onClick={handleNext}>Next</button>
+              </div>
+
+              {/* Hidden audio element */}
+              <audio ref={audioRef} style={{ display: 'none' }} />
+            </div>
+          </div>
+        );
+      }
 
       return (
         <React.Fragment>
@@ -1136,245 +1104,67 @@
             )}
           </div>
 
-          {/* Desktop Icons */}
+          {/* Desktop Icon for 3D Pinball */}
           <div
             className="desktop-icon"
-            title="3D Pinball"
-            onDoubleClick={handlePinballDoubleClick}
+            style={{ bottom: '10px', left: '10px' }}
+            title={theme.replace('-', ' ').toUpperCase()}
+            onDoubleClick={handleDesktopIconDoubleClick}
           >
             <img src="./3D Pinball.png" alt="3D Pinball" />
             <label>3D Pinball</label>
           </div>
 
-          {/* New WranglerAMP Desktop Icon */}
+          {/*
+            NEW DESKTOP ICON: WranglerAMP
+            Matches text size with Pinball 3D, spaced so it doesn't overlap.
+          */}
           <div
             className="desktop-icon"
-            style={{ left: '90px' }} /* Adjust position as needed */
-            title="WranglerAMP"
+            style={{ bottom: '10px', left: '100px' }}
             onDoubleClick={handleWranglerAMPDoubleClick}
           >
-            <img src="./Wrangleramp.png" alt="WranglerAMP" />
+            <img src="./WranglerAMP.png" alt="WranglerAMP" />
             <label>WranglerAMP</label>
           </div>
 
-          {/* WranglerAMP Window */}
-          {showWranglerAMP && <WranglerAMP onClose={closeWranglerAMP} theme={theme} />}
+          {/* Conditionally render the WranglerAMP window if showWranglerAMP is true */}
+          {showWranglerAMP && <WranglerAMP onClose={() => setShowWranglerAMP(false)} />}
+
         </React.Fragment>
       );
-
-      // WranglerAMP Component
-      function WranglerAMP({ onClose, theme }) {
-        const [playlist, setPlaylist] = useState([]);
-        const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-        const [isPlaying, setIsPlaying] = useState(false);
-        const [volume, setVolume] = useState(1);
-        const audioRef = useRef(null);
-
-        // Drag state
-        const [position, setPosition] = useState({ x: 100, y: 100 });
-        const [isDragging, setIsDragging] = useState(false);
-        const dragStart = useRef({ x: 0, y: 0 });
-        const windowStart = useRef({ x: 0, y: 0 });
-
-        // Fetch MP3 files from the 'music/' directory
-        useEffect(() => {
-          // For demonstration, we will use a hardcoded list.
-          // In a real application, you might fetch this list from the server.
-          const fetchPlaylist = async () => {
-            try {
-              // Example: List of MP3 files
-              const mp3Files = [
-                'music/song1.mp3',
-                'music/song2.mp3',
-                'music/song3.mp3'
-              ];
-              setPlaylist(mp3Files);
-            } catch (err) {
-              console.error('Error fetching playlist:', err);
-            }
-          };
-          fetchPlaylist();
-        }, []);
-
-        // Play or pause audio based on isPlaying state
-        useEffect(() => {
-          if (audioRef.current) {
-            audioRef.current.volume = volume;
-            if (isPlaying) {
-              audioRef.current.play();
-            } else {
-              audioRef.current.pause();
-            }
-          }
-        }, [isPlaying, currentTrackIndex, volume]);
-
-        // Handle track end
-        const handleEnded = () => {
-          handleNext();
-        };
-
-        const handlePlay = () => {
-          setIsPlaying(true);
-        };
-
-        const handlePause = () => {
-          setIsPlaying(false);
-        };
-
-        const handleStop = () => {
-          setIsPlaying(false);
-          if (audioRef.current) {
-            audioRef.current.currentTime = 0;
-          }
-        };
-
-        const handleNext = () => {
-          setCurrentTrackIndex((prevIndex) => (prevIndex + 1) % playlist.length);
-          setIsPlaying(true);
-        };
-
-        const handlePrevious = () => {
-          setCurrentTrackIndex((prevIndex) => (prevIndex - 1 + playlist.length) % playlist.length);
-          setIsPlaying(true);
-        };
-
-        const handleSelectTrack = (index) => {
-          setCurrentTrackIndex(index);
-          setIsPlaying(true);
-        };
-
-        // Handle Volume Change
-        const handleVolumeChange = (e) => {
-          setVolume(e.target.value);
-        };
-
-        // Drag Handlers
-        const handleMouseDown = (e) => {
-          setIsDragging(true);
-          dragStart.current = { x: e.clientX, y: e.clientY };
-          windowStart.current = { ...position };
-          e.preventDefault();
-        };
-
-        const handleMouseMove = (e) => {
-          if (!isDragging) return;
-          const dx = e.clientX - dragStart.current.x;
-          const dy = e.clientY - dragStart.current.y;
-          setPosition({
-            x: windowStart.current.x + dx,
-            y: windowStart.current.y + dy
-          });
-        };
-
-        const handleMouseUp = () => {
-          setIsDragging(false);
-        };
-
-        // Add event listeners for dragging
-        useEffect(() => {
-          if (isDragging) {
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
-          } else {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
-          }
-
-          // Cleanup on unmount
-          return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
-          };
-        }, [isDragging]);
-
-        return (
-          <div
-            className="wrangleramp-window"
-            style={{ top: position.y, left: position.x }}
-          >
-            <div
-              className="wrangleramp-header"
-              onMouseDown={handleMouseDown}
-            >
-              <h3>WranglerAMP</h3>
-              <button className="wrangleramp-close" onClick={onClose}>×</button>
-            </div>
-            <div className="wrangleramp-body">
-              <div className="wrangleramp-playlist">
-                <ul>
-                  {playlist.map((track, index) => (
-                    <li
-                      key={index}
-                      className={index === currentTrackIndex ? 'active' : ''}
-                      onClick={() => handleSelectTrack(index)}
-                    >
-                      {track.replace('music/', '').replace('.mp3', '')}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="wrangleramp-controls">
-                <button onClick={handlePrevious}>⏮️</button>
-                {isPlaying ? (
-                  <button onClick={handlePause}>⏸️</button>
-                ) : (
-                  <button onClick={handlePlay}>▶️</button>
-                )}
-                <button onClick={handleStop}>⏹️</button>
-                <button onClick={handleNext}>⏭️</button>
-              </div>
-              <div className="wrangleramp-title">
-                {playlist.length > 0 ? `Now Playing: ${playlist[currentTrackIndex].replace('music/', '').replace('.mp3', '')}` : 'No Tracks Available'}
-              </div>
-              <div className="wrangleramp-progress" onClick={(e) => {
-                if (audioRef.current) {
-                  const rect = e.target.getBoundingClientRect();
-                  const clickX = e.clientX - rect.left;
-                  const newTime = (clickX / rect.width) * audioRef.current.duration;
-                  audioRef.current.currentTime = newTime;
-                }
-              }}>
-                <div
-                  className="wrangleramp-progress-filled"
-                  style={{ width: audioRef.current ? `${(audioRef.current.currentTime / audioRef.current.duration) * 100}%` : '0%' }}
-                ></div>
-              </div>
-              <div className="wrangleramp-volume">
-                <label>🔊</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={volume}
-                  onChange={handleVolumeChange}
-                />
-              </div>
-              {playlist.length > 0 && (
-                <audio
-                  ref={audioRef}
-                  src={playlist[currentTrackIndex]}
-                  onEnded={handleEnded}
-                  onTimeUpdate={() => {
-                    // Force re-render to update progress bar
-                    setPosition({ ...position });
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        );
-      }
-
-      ReactDOM.render(<App />, document.getElementById('root'));
     }
 
-    // Render the App component
     ReactDOM.render(<App />, document.getElementById('root'));
   </script>
   
   <script>
-  (function(){if(!window.chatbase||window.chatbase("getState")!=="initialized"){window.chatbase=(...arguments)=>{if(!window.chatbase.q){window.chatbase.q=[]}window.chatbase.q.push(arguments)};window.chatbase=new Proxy(window.chatbase,{get(target,prop){if(prop==="q"){return target.q}return(...args)=>target(prop,...args)}})}const onLoad=function(){const script=document.createElement("script");script.src="https://www.chatbase.co/embed.min.js";script.id="a6KEY-CzeRenB_ZFS3CbQ";script.domain="www.chatbase.co";document.body.appendChild(script)};if(document.readyState==="complete"){onLoad()}else{window.addEventListener("load", onLoad)}})();
+  (function(){
+    if(!window.chatbase||window.chatbase("getState")!=="initialized"){
+      window.chatbase=(...arguments)=>{
+        if(!window.chatbase.q){window.chatbase.q=[]}
+        window.chatbase.q.push(arguments)
+      };
+      window.chatbase=new Proxy(window.chatbase,{
+        get(target,prop){
+          if(prop==="q"){return target.q}
+          return(...args)=>target(prop,...args)
+        }
+      })
+    }
+    const onLoad=function(){
+      const script=document.createElement("script");
+      script.src="https://www.chatbase.co/embed.min.js";
+      script.id="a6KEY-CzeRenB_ZFS3CbQ";
+      script.domain="www.chatbase.co";
+      document.body.appendChild(script)
+    };
+    if(document.readyState==="complete"){
+      onLoad()
+    }else{
+      window.addEventListener("load", onLoad)
+    }
+  })();
   </script>
 
 </body>
