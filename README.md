@@ -1,5 +1,8 @@
 # Fucker Forms (https://fuckerforms.com)
 
+v1.3 Changelog
+1) 3D Pinball. What fucker doesn't love a rousing game of pinball?! *Warning* this embed is LOUD. 
+
 v1.2 Changelog
 1) Lil Fucker is now live! I trained a chatbot on the SASP SOPs and procedures as well as some major Supreme Court rulings to make a "Clippy" for Fucker Forms.
 
