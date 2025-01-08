@@ -369,7 +369,7 @@
     .desktop-icon {
       position: fixed;
       bottom: 10px;
-      /* Left offset will differ for each icon so they don't overlap */
+      left: 10px;
       text-align: center;
       cursor: pointer;
       user-select: none;
@@ -394,7 +394,7 @@
 
   <script type="text/babel">
     // Using React Hooks
-    const { useState, useMemo, useEffect, useRef } = React;
+    const { useState, useMemo, useEffect } = React;
     const XLSXLib = window.XLSX;
     const PapaLib = window.Papa;
 
@@ -409,16 +409,6 @@
       const [errorMessage, setErrorMessage] = useState('');
       // Default theme
       const [theme, setTheme] = useState('dark-mode');
-
-      // ---------------------------
-      // NEW STATE + HANDLER for WranglerAMP
-      // ---------------------------
-      const [showWranglerAMP, setShowWranglerAMP] = useState(false);
-
-      function handleWranglerAMPDoubleClick() {
-        setShowWranglerAMP(true);
-      }
-      // ---------------------------
 
       // On initial mount, try loading from localStorage
       useEffect(() => {
@@ -841,7 +831,7 @@
         alert('Session cleared from local storage. Reload page to start fresh.');
       }
 
-      // Handler for double-click on 3D Pinball desktop icon
+      // Handler for double-click on desktop icon
       const handleDesktopIconDoubleClick = () => {
         const url = 'https://alula.github.io/SpaceCadetPinball/';
         const windowName = `3D Pinball - ${theme}`;
@@ -849,113 +839,7 @@
         window.open(url, windowName, windowFeatures);
       };
 
-      // ---------------------------------------
-      // WranglerAMP "Winamp-like" MP3 Player
-      // ---------------------------------------
-      function WranglerAMP({ onClose }) {
-        // List of MP3s in the main directory (update these to your real MP3 filenames)
-        const mp3Playlist = [
-          "./track01.mp3",
-          "./track02.mp3",
-          "./track03.mp3"
-        ];
-
-        const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-        const audioRef = useRef(null);
-
-        // Load & autoplay whenever currentTrackIndex changes
-        useEffect(() => {
-          if (audioRef.current) {
-            audioRef.current.src = mp3Playlist[currentTrackIndex];
-            audioRef.current.load();
-            audioRef.current.play().catch(() => {
-              // If autoplay is blocked, user must click Play
-            });
-          }
-        }, [currentTrackIndex]);
-
-        function handlePlay() {
-          if (audioRef.current) {
-            audioRef.current.play();
-          }
-        }
-
-        function handlePause() {
-          if (audioRef.current) {
-            audioRef.current.pause();
-          }
-        }
-
-        function handleStop() {
-          if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-          }
-        }
-
-        function handleNext() {
-          setCurrentTrackIndex((prevIndex) =>
-            (prevIndex + 1) % mp3Playlist.length
-          );
-        }
-
-        function handlePrev() {
-          setCurrentTrackIndex((prevIndex) =>
-            (prevIndex - 1 + mp3Playlist.length) % mp3Playlist.length
-          );
-        }
-
-        return (
-          <div
-            style={{
-              position: 'fixed',
-              top: '100px',
-              left: '100px',
-              width: '460px',
-              height: '300px',
-              backgroundColor: '#333',
-              color: '#fff',
-              border: '2px solid #000',
-              zIndex: 9999,
-              fontFamily: 'sans-serif',
-            }}
-          >
-            {/* Title bar / close button */}
-            <div style={{
-              backgroundColor: '#444',
-              padding: '6px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <span style={{ fontWeight: 'bold' }}>WranglerAMP</span>
-              <button onClick={onClose} style={{ cursor: 'pointer' }}>
-                X
-              </button>
-            </div>
-
-            {/* "Winamp" display area */}
-            <div style={{ padding: '10px' }}>
-              <div style={{ marginBottom: '10px', fontWeight: 'bold' }}>
-                Now Playing: {mp3Playlist[currentTrackIndex]}
-              </div>
-
-              {/* Playback controls */}
-              <div>
-                <button onClick={handlePlay}>Play</button>
-                <button onClick={handlePause}>Pause</button>
-                <button onClick={handleStop}>Stop</button>
-                <button onClick={handlePrev}>Prev</button>
-                <button onClick={handleNext}>Next</button>
-              </div>
-
-              {/* Hidden audio element */}
-              <audio ref={audioRef} style={{ display: 'none' }} />
-            </div>
-          </div>
-        );
-      }
-
+      // Note the named <React.Fragment> replacing <>...</>
       return (
         <React.Fragment>
           {/* Conditionally show the correct logo based on theme */}
@@ -1104,33 +988,15 @@
             )}
           </div>
 
-          {/* Desktop Icon for 3D Pinball */}
+          {/* Desktop Icon */}
           <div
             className="desktop-icon"
-            style={{ bottom: '10px', left: '10px' }}
             title={theme.replace('-', ' ').toUpperCase()}
             onDoubleClick={handleDesktopIconDoubleClick}
           >
             <img src="./3D Pinball.png" alt="3D Pinball" />
             <label>3D Pinball</label>
           </div>
-
-          {/*
-            NEW DESKTOP ICON: WranglerAMP
-            Matches text size with Pinball 3D, spaced so it doesn't overlap.
-          */}
-          <div
-            className="desktop-icon"
-            style={{ bottom: '10px', left: '100px' }}
-            onDoubleClick={handleWranglerAMPDoubleClick}
-          >
-            <img src="./WranglerAMP.png" alt="WranglerAMP" />
-            <label>WranglerAMP</label>
-          </div>
-
-          {/* Conditionally render the WranglerAMP window if showWranglerAMP is true */}
-          {showWranglerAMP && <WranglerAMP onClose={() => setShowWranglerAMP(false)} />}
-
         </React.Fragment>
       );
     }
@@ -1139,33 +1005,11 @@
   </script>
   
   <script>
-  (function(){
-    if(!window.chatbase||window.chatbase("getState")!=="initialized"){
-      window.chatbase=(...arguments)=>{
-        if(!window.chatbase.q){window.chatbase.q=[]}
-        window.chatbase.q.push(arguments)
-      };
-      window.chatbase=new Proxy(window.chatbase,{
-        get(target,prop){
-          if(prop==="q"){return target.q}
-          return(...args)=>target(prop,...args)
-        }
-      })
-    }
-    const onLoad=function(){
-      const script=document.createElement("script");
-      script.src="https://www.chatbase.co/embed.min.js";
-      script.id="a6KEY-CzeRenB_ZFS3CbQ";
-      script.domain="www.chatbase.co";
-      document.body.appendChild(script)
-    };
-    if(document.readyState==="complete"){
-      onLoad()
-    }else{
-      window.addEventListener("load", onLoad)
-    }
-  })();
+  (function(){if(!window.chatbase||window.chatbase("getState")!=="initialized"){window.chatbase=(...arguments)=>{if(!window.chatbase.q){window.chatbase.q=[]}window.chatbase.q.push(arguments)};window.chatbase=new Proxy(window.chatbase,{get(target,prop){if(prop==="q"){return target.q}return(...args)=>target(prop,...args)}})}const onLoad=function(){const script=document.createElement("script");script.src="https://www.chatbase.co/embed.min.js";script.id="a6KEY-CzeRenB_ZFS3CbQ";script.domain="www.chatbase.co";document.body.appendChild(script)};if(document.readyState==="complete"){onLoad()}else{window.addEventListener("load", onLoad)}})();
   </script>
 
 </body>
 </html>
+
+
+
